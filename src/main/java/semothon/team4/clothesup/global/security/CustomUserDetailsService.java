@@ -34,7 +34,7 @@ public class CustomUserDetailsService implements UserDetailsService {
     private UserDetails createUserDetails(User user) {
         return org.springframework.security.core.userdetails.User.builder()
             .username(user.getEmail())
-            .password(user.getEncryptPwd())
+            .password(user.getPassword())
             .roles(user.getRoles().stream()
                 .map(Enum::name)
                 .toArray(String[]::new))

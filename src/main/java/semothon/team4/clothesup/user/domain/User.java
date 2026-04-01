@@ -32,18 +32,16 @@ public class User {
     @Column(nullable = false, unique = true, length = 255)
     private String email;
 
-    private String photo;
-
-    @Column(name = "encrypt_pwd", nullable = false)
-    private String encryptPwd;
+    @Column(nullable = false)
+    private String password;
 
     private String nickname;
+
+    private String profileImage;
 
     @Column(name = "created_at")
     private LocalDateTime createdAt = LocalDateTime.now();
 
-    @Column(name = "updated_at")
-    private LocalDateTime updatedAt = LocalDateTime.now();
 
     @ElementCollection
     @Enumerated(EnumType.STRING)
@@ -51,7 +49,7 @@ public class User {
 
     public User(String email, String encodedPassword, List<Role> user, String nickname) {
         this.email = email;
-        this.encryptPwd = encodedPassword;
+        this.password = encodedPassword;
         this.roles = user;
         this.nickname = nickname;
     }
