@@ -1,0 +1,23 @@
+spring:
+  application:
+    name: clothesup
+  datasource:
+    url: jdbc:mysql://localhost:3305/clothesup?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Seoul&useUnicode=true&characterEncoding=UTF-8&connectionCollation=utf8mb4_unicode_ci
+    username: 비밀
+    password: 비밀
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        show_sql: true
+        format_sql: true
+
+
+server:
+  port: 8080
+jwt:
+  secret:비밀
+  access-expiration-time: 3600000       # 1시간
+  refresh-expiration-time: 604800000 # 1주일
