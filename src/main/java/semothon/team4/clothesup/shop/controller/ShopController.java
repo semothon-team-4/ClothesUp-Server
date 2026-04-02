@@ -16,10 +16,12 @@ import semothon.team4.clothesup.global.common.BaseResponse;
 import semothon.team4.clothesup.global.security.CustomUserDetails;
 import semothon.team4.clothesup.shop.dto.ShopDetailResponse;
 import semothon.team4.clothesup.shop.dto.ShopListResponse;
+import semothon.team4.clothesup.shop.dto.ShopPinResponse;
 import semothon.team4.clothesup.shop.dto.ShopPriceDto;
 import semothon.team4.clothesup.shop.dto.ShopPriceRegisterRequest;
 import semothon.team4.clothesup.shop.dto.ShopRegisterRequest;
 import semothon.team4.clothesup.shop.dto.ShopRegisterResponse;
+import semothon.team4.clothesup.shop.service.KakaoMapService;
 import semothon.team4.clothesup.shop.service.ShopService;
 
 @RestController
@@ -28,6 +30,19 @@ import semothon.team4.clothesup.shop.service.ShopService;
 public class ShopController {
 
     private final ShopService shopService;
+    private final KakaoMapService kakaoMapService;
+
+    @GetMapping("/map")
+    public ResponseEntity<BaseResponse<List<ShopPinResponse>>> getShopsInBounds(
+        @RequestParam Double swLat,
+        @RequestParam Double swLng,
+        @RequestParam Double neLat,
+        @RequestParam Double neLng) {
+
+        return BaseResponse.ok("세탁소 조회 성공",
+            kakaoMapService.searchLaundryInBounds(swLat, swLng, neLat, neLng)
+        );
+    }
 
     @Operation(summary = "주변 세탁소 목록 조회")
     @GetMapping
