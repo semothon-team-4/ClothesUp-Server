@@ -14,20 +14,26 @@ import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
 import java.util.stream.Collectors;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Component;
 import semothon.team4.clothesup.user.domain.User;
+import semothon.team4.clothesup.user.repository.UserRepository;
 
 
 @Slf4j
 @Component
+@RequiredArgsConstructor
 public class JwtTokenProvider {
 
+    private final UserRepository userRepository;
     private Key key;
 
     @Value("${jwt.secret}")
@@ -98,18 +104,15 @@ public class JwtTokenProvider {
             throw new RuntimeException("권한 정보가 없는 토큰입니다.");
         }
 
-        // claims를 확인하여 권한 정보 가져오기
-        List<GrantedAuthority> authorities =
-            Arrays.stream(claims.get("auth").toString().split(",")) //auth 클레임을 가져와 쉼표로 구분된 권한 리스트 생성
-                .map(SimpleGrantedAuthority::new)   // 각 권한 문자열을 SimpleGrantedAuthority 객체로 변환
-                .collect(Collectors.toList());  // 변환된 권한들을 List로 수집하여 authorities에 저장
-
-        User user = new User();
-        user.setEmail(claims.getSubject());
-        CustomUserDetails principal = new CustomUserDetails(user);
+        // 순환 참조 방지를 위해 Repository를 직접 사용하여 User 정보를 로드합니다.
+        // LazyInitializationException 방지를 위해 roles를 함께 로드하는 findByEmailWithRoles를 사용합니다.
+        User user = userRepository.findByEmailWithRoles(claims.getSubject())
+            .orElseThrow(() -> new UsernameNotFoundException("해당하는 회원을 찾을 수 없습니다."));
+            
+        UserDetails userDetails = new CustomUserDetails(user);
 
         // principal은 사용자 정보, authorities는 사용자의 권한 정보를 포함
-        return new UsernamePasswordAuthenticationToken(principal, "", authorities); // 인증 객체 반환
+        return new UsernamePasswordAuthenticationToken(userDetails, "", userDetails.getAuthorities()); // 인증 객체 반환
     }
 
     //토큰 유효성 검사
@@ -152,4 +155,3 @@ public class JwtTokenProvider {
         return parseClaims(refreshToken).getSubject();
     }
 }
-

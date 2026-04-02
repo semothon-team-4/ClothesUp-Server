@@ -1,4 +1,4 @@
-package semothon.team4.clothesup.post.domain;
+package semothon.team4.clothesup.user.domain;
 
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
@@ -24,6 +24,11 @@ public class PostLike {
     @ManyToOne(fetch = FetchType.LAZY)
     private Post post;
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.LAZY, cascade = {jakarta.persistence.CascadeType.MERGE})
     private User user;
+
+    public PostLike(Post post, User user) {
+        this.post = post;
+        this.user = user;
+    }
 }

@@ -77,6 +77,21 @@ public class GlobalExceptionHandler {
         return BaseResponse.of(HttpStatus.NOT_FOUND, "요청한 URL을 찾을 수 없습니다.");
     }
 
+    @ExceptionHandler(org.springframework.web.HttpRequestMethodNotSupportedException.class)
+    public ResponseEntity<BaseResponse<?>> handleMethodNotSupported(org.springframework.web.HttpRequestMethodNotSupportedException ex) {
+        log.error("[MethodNotSupportedException] {}", ex.getMessage());
+        return BaseResponse.of(HttpStatus.METHOD_NOT_ALLOWED, "지원하지 않는 HTTP 메서드입니다.");
+    }
+
+    /**
+     * 모든 예외를 잡는 최후의 보루
+     */
+    @ExceptionHandler(Throwable.class)
+    public ResponseEntity<BaseResponse<?>> handleThrowable(Throwable e) {
+        log.error("[Fatal Error] 예상치 못한 심각한 오류 발생: {}", e.getMessage(), e);
+        return BaseResponse.internalServerError("서버 내부 오류가 발생했습니다.");
+    }
+
 
     /**
      * 그 외 알 수 없는 예외

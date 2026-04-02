@@ -1,4 +1,4 @@
-package semothon.team4.clothesup.post.domain;
+package semothon.team4.clothesup.user.domain;
 
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
@@ -24,11 +24,18 @@ public class Comment {
     @ManyToOne(fetch = FetchType.LAZY)
     private Post post;
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.LAZY, cascade = {jakarta.persistence.CascadeType.MERGE})
     private User user;
 
     @Lob
     private String content;
 
     private LocalDateTime createdAt;
+
+    public Comment(Post post, User user, String content) {
+        this.post = post;
+        this.user = user;
+        this.content = content;
+        this.createdAt = LocalDateTime.now();
+    }
 }
