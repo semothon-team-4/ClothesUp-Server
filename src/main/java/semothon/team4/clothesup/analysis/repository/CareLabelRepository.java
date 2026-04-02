@@ -7,4 +7,5 @@ import semothon.team4.clothesup.analysis.domain.CareLabelAnalysis;
 
 public interface CareLabelRepository extends JpaRepository<CareLabel, Long> {
     List<CareLabel> findByCareLabelAnalysis(CareLabelAnalysis careLabelAnalysis);
+    List<CareLabel> findByCareLabelAnalysisIn(List<CareLabelAnalysis> careLabelAnalyses);
 }

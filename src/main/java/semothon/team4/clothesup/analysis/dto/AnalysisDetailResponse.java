@@ -12,12 +12,13 @@ import semothon.team4.clothesup.analysis.domain.ConditionAnalysis;
 @Getter
 @Builder
 public class AnalysisDetailResponse {
+
     private Long id;
     private String name;
     private String category;
     private String imageUrl;
-    private CareLabelDto careLabel;
-    private ConditionDto condition;
+    private CareLabelDto careLabel;   // CareLabelAnalysis인 경우만 non-null
+    private ConditionDto condition;   // ConditionAnalysis인 경우만 non-null
     private LocalDateTime createdAt;
 
     @Getter
@@ -68,15 +69,27 @@ public class AnalysisDetailResponse {
         }
     }
 
-    public static AnalysisDetailResponse from(Analysis analysis, CareLabelAnalysis careLabelAnalysis,
-        List<CareLabel> careLabels, ConditionAnalysis conditionAnalysis) {
+    public static AnalysisDetailResponse fromCondition(Analysis analysis, ConditionAnalysis conditionAnalysis) {
+        return AnalysisDetailResponse.builder()
+            .id(analysis.getId())
+            .name(analysis.getName())
+            .category(analysis.getCategory())
+            .imageUrl(analysis.getImageUrl())
+            .condition(ConditionDto.from(conditionAnalysis))
+            .careLabel(null)
+            .createdAt(analysis.getCreatedAt())
+            .build();
+    }
+
+    public static AnalysisDetailResponse fromCareLabel(Analysis analysis,
+        CareLabelAnalysis careLabelAnalysis, List<CareLabel> careLabels) {
         return AnalysisDetailResponse.builder()
             .id(analysis.getId())
             .name(analysis.getName())
             .category(analysis.getCategory())
             .imageUrl(analysis.getImageUrl())
             .careLabel(CareLabelDto.from(careLabelAnalysis, careLabels))
-            .condition(ConditionDto.from(conditionAnalysis))
+            .condition(null)
             .createdAt(analysis.getCreatedAt())
             .build();
     }

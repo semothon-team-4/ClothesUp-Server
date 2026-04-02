@@ -40,3 +40,4 @@ out/
 *.yaml
 !src/main/resources/application-example.yml
 CLAUDE.md
+*.sql

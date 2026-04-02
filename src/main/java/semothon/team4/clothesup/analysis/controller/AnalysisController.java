@@ -1,7 +1,6 @@
 package semothon.team4.clothesup.analysis.controller;
 
 import io.swagger.v3.oas.annotations.Operation;
-import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -14,8 +13,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
+import semothon.team4.clothesup.analysis.dto.AnalysisClosetResponse;
 import semothon.team4.clothesup.analysis.dto.AnalysisDetailResponse;
-import semothon.team4.clothesup.analysis.dto.AnalysisListItemResponse;
 import semothon.team4.clothesup.analysis.service.AnalysisService;
 import semothon.team4.clothesup.global.common.BaseResponse;
 import semothon.team4.clothesup.global.security.CustomUserDetails;
@@ -41,7 +40,7 @@ public class AnalysisController {
 
     @Operation(summary = "내 옷장 목록 조회")
     @GetMapping
-    public ResponseEntity<BaseResponse<List<AnalysisListItemResponse>>> getMyAnalyses(
+    public ResponseEntity<BaseResponse<AnalysisClosetResponse>> getMyAnalyses(
         @AuthenticationPrincipal CustomUserDetails userDetails
     ) {
         return BaseResponse.ok("옷장 목록 조회 성공",
