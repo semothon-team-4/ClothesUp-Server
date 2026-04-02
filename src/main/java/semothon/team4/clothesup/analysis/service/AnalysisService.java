@@ -2,6 +2,8 @@ package semothon.team4.clothesup.analysis.service;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -10,6 +12,7 @@ import semothon.team4.clothesup.analysis.domain.Analysis;
 import semothon.team4.clothesup.analysis.domain.CareLabel;
 import semothon.team4.clothesup.analysis.domain.CareLabelAnalysis;
 import semothon.team4.clothesup.analysis.domain.ConditionAnalysis;
+import semothon.team4.clothesup.analysis.dto.AnalysisClosetResponse;
 import semothon.team4.clothesup.analysis.dto.AnalysisDetailResponse;
 import semothon.team4.clothesup.analysis.dto.AnalysisListItemResponse;
 import semothon.team4.clothesup.analysis.repository.AnalysisRepository;
@@ -44,11 +47,6 @@ public class AnalysisService {
             .build());
 
         // TODO: AI 분석 연동 시 아래 stub 데이터를 실제 분석 결과로 교체하세요
-        CareLabelAnalysis careLabelAnalysis = careLabelAnalysisRepository.save(
-            CareLabelAnalysis.builder()
-                .analysis(analysis)
-                .build());
-
         ConditionAnalysis conditionAnalysis = conditionAnalysisRepository.save(
             ConditionAnalysis.builder()
                 .analysis(analysis)
@@ -58,15 +56,53 @@ public class AnalysisService {
                 .recommendation("분석 결과 없음")
                 .build());
 
-        List<CareLabel> careLabels = careLabelRepository.findByCareLabelAnalysis(careLabelAnalysis);
-
-        return AnalysisDetailResponse.from(analysis, careLabelAnalysis, careLabels, conditionAnalysis);
+        return AnalysisDetailResponse.fromCondition(analysis, conditionAnalysis);
     }
 
-    public List<AnalysisListItemResponse> getMyAnalyses(User user) {
-        return analysisRepository.findByUser(user).stream()
-            .map(AnalysisListItemResponse::from)
+    public AnalysisClosetResponse getMyAnalyses(User user) {
+        List<Analysis> analyses = analysisRepository.findByUser(user);
+
+        // 등급 배치 조회
+        Map<Long, ConditionAnalysis.Grade> gradeByAnalysisId =
+            conditionAnalysisRepository.findByAnalysisIn(analyses).stream()
+                .collect(Collectors.toMap(
+                    ca -> ca.getAnalysis().getId(),
+                    ConditionAnalysis::getGrade
+                ));
+
+        // 케어라벨 배치 조회
+        List<CareLabelAnalysis> careLabelAnalyses =
+            careLabelAnalysisRepository.findByAnalysisIn(analyses);
+
+        Map<Long, CareLabelAnalysis> careLabelAnalysisByAnalysisId = careLabelAnalyses.stream()
+            .collect(Collectors.toMap(
+                cla -> cla.getAnalysis().getId(),
+                cla -> cla
+            ));
+
+        Map<Long, List<CareLabel>> careLabelsByCareLabelAnalysisId =
+            careLabelRepository.findByCareLabelAnalysisIn(careLabelAnalyses).stream()
+                .collect(Collectors.groupingBy(cl -> cl.getCareLabelAnalysis().getId()));
+
+        List<AnalysisListItemResponse> items = analyses.stream()
+            .map(a -> {
+                CareLabelAnalysis cla = careLabelAnalysisByAnalysisId.get(a.getId());
+                List<CareLabel> labels = cla != null
+                    ? careLabelsByCareLabelAnalysisId.getOrDefault(cla.getId(), List.of())
+                    : List.of();
+                return AnalysisListItemResponse.from(a, gradeByAnalysisId.get(a.getId()), labels);
+            })
             .toList();
+
+        Map<ConditionAnalysis.Grade, Long> gradeCounts = items.stream()
+            .filter(item -> item.getGrade() != null)
+            .collect(Collectors.groupingBy(AnalysisListItemResponse::getGrade, Collectors.counting()));
+
+        return AnalysisClosetResponse.builder()
+            .totalCount(analyses.size())
+            .gradeCounts(gradeCounts)
+            .items(items)
+            .build();
     }
 
     public AnalysisDetailResponse getAnalysisDetail(User user, Long analysisId) {
@@ -77,13 +113,15 @@ public class AnalysisService {
             throw new CoreException(AnalysisErrorCode.ANALYSIS_ACCESS_DENIED);
         }
 
-        CareLabelAnalysis careLabelAnalysis = careLabelAnalysisRepository.findByAnalysis(analysis)
-            .orElseThrow(() -> new CoreException(AnalysisErrorCode.ANALYSIS_NOT_FOUND));
-        List<CareLabel> careLabels = careLabelRepository.findByCareLabelAnalysis(careLabelAnalysis);
-        ConditionAnalysis conditionAnalysis = conditionAnalysisRepository.findByAnalysis(analysis)
-            .orElseThrow(() -> new CoreException(AnalysisErrorCode.ANALYSIS_NOT_FOUND));
-
-        return AnalysisDetailResponse.from(analysis, careLabelAnalysis, careLabels, conditionAnalysis);
+        // ConditionAnalysis 우선 확인, 없으면 CareLabelAnalysis 확인
+        return conditionAnalysisRepository.findByAnalysis(analysis)
+            .map(condition -> AnalysisDetailResponse.fromCondition(analysis, condition))
+            .orElseGet(() -> {
+                CareLabelAnalysis cla = careLabelAnalysisRepository.findByAnalysis(analysis)
+                    .orElseThrow(() -> new CoreException(AnalysisErrorCode.ANALYSIS_NOT_FOUND));
+                List<CareLabel> labels = careLabelRepository.findByCareLabelAnalysis(cla);
+                return AnalysisDetailResponse.fromCareLabel(analysis, cla, labels);
+            });
     }
 
     @Transactional

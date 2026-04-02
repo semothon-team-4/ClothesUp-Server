@@ -14,6 +14,7 @@ import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
 import java.util.stream.Collectors;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -22,11 +23,15 @@ import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.stereotype.Component;
 import semothon.team4.clothesup.user.domain.User;
+import semothon.team4.clothesup.user.repository.UserRepository;
 
 
 @Slf4j
 @Component
+@RequiredArgsConstructor
 public class JwtTokenProvider {
+
+    private final UserRepository userRepository;
 
     private Key key;
 
@@ -104,8 +109,8 @@ public class JwtTokenProvider {
                 .map(SimpleGrantedAuthority::new)   // 각 권한 문자열을 SimpleGrantedAuthority 객체로 변환
                 .collect(Collectors.toList());  // 변환된 권한들을 List로 수집하여 authorities에 저장
 
-        User user = new User();
-        user.setEmail(claims.getSubject());
+        User user = userRepository.findByEmail(claims.getSubject())
+            .orElseThrow(() -> new RuntimeException("User not found: " + claims.getSubject()));
         CustomUserDetails principal = new CustomUserDetails(user);
 
         // principal은 사용자 정보, authorities는 사용자의 권한 정보를 포함
