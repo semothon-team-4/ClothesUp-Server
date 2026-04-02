@@ -1,12 +1,17 @@
 package semothon.team4.clothesup.shop.service;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import semothon.team4.clothesup.global.kakao.KakaoLocalApiClient;
+import semothon.team4.clothesup.shop.domain.Shop;
+import semothon.team4.clothesup.shop.dto.KakaoLocalDocument;
 import semothon.team4.clothesup.shop.dto.KakaoSearchResponse;
-import semothon.team4.clothesup.shop.dto.ShopPinResponse;
+import semothon.team4.clothesup.shop.dto.ShopListResponse;
+import semothon.team4.clothesup.shop.repository.ShopRepository;
 
 @Slf4j
 @Service
@@ -14,12 +19,14 @@ import semothon.team4.clothesup.shop.dto.ShopPinResponse;
 public class KakaoMapService {
 
     private final KakaoLocalApiClient kakaoLocalApiClient;
+    private final ShopRepository shopRepository;
 
-    public List<ShopPinResponse> searchLaundryInBounds(
+    @Transactional
+    public List<ShopListResponse> searchLaundryInBounds(
         double swLat, double swLng,
-        double neLat, double neLng) {
+        double neLat, double neLng,
+        double userLat, double userLng) {
 
-        // sw/ne 중간값을 중심 좌표로 계산
         double centerLat = (swLat + neLat) / 2;
         double centerLng = (swLng + neLng) / 2;
 
@@ -31,17 +38,31 @@ public class KakaoMapService {
         }
 
         return response.getDocuments().stream()
-            .map(ShopPinResponse::fromKakaoDocument)
-            .peek(shop -> log.info("name: {}, lat: {}, lng: {}",
-                shop.getName(), shop.getLatitude(), shop.getLongitude()))
-            .filter(shop -> isInBounds(shop, swLat, swLng, neLat, neLng))
+            .filter(doc -> {
+                double lat = Double.parseDouble(doc.getY());
+                double lng = Double.parseDouble(doc.getX());
+                return lat >= swLat && lat <= neLat && lng >= swLng && lng <= neLng;
+            })
+            .map(this::upsertShop)
+            .map(shop -> ShopListResponse.from(shop, userLat, userLng))
             .toList();
     }
 
-    private boolean isInBounds(ShopPinResponse shop,
-        double swLat, double swLng,
-        double neLat, double neLng) {
-        return shop.getLatitude()  >= swLat && shop.getLatitude()  <= neLat
-            && shop.getLongitude() >= swLng && shop.getLongitude() <= neLng;
+    private Shop upsertShop(KakaoLocalDocument doc) {
+        return shopRepository.findByPlaceId(doc.getId())
+            .orElseGet(() -> shopRepository.save(Shop.builder()
+                .placeId(doc.getId())
+                .name(doc.getPlaceName())
+                .address(doc.getAddressName())
+                .lat(Double.parseDouble(doc.getY()))
+                .lng(Double.parseDouble(doc.getX()))
+                .phone(doc.getPhone())
+                .category(doc.getCategoryName())
+                .placeUrl(doc.getPlaceUrl())
+                .like(0L)
+                .rate(0.0)
+                .reviewCount(0L)
+                .createdAt(LocalDateTime.now())
+                .build()));
     }
 }

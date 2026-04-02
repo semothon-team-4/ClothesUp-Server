@@ -10,6 +10,9 @@ import lombok.NoArgsConstructor;
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class KakaoLocalDocument {
 
+    @JsonProperty("id")
+    private String id;
+
     @JsonProperty("place_name")
     private String placeName;
 
@@ -21,6 +24,12 @@ public class KakaoLocalDocument {
 
     @JsonProperty("phone")
     private String phone;
+
+    @JsonProperty("category_name")
+    private String categoryName;
+
+    @JsonProperty("place_url")
+    private String placeUrl;
 
     @JsonProperty("x")
     private String x; // 경도 (longitude)

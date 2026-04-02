@@ -16,7 +16,6 @@ import semothon.team4.clothesup.global.common.BaseResponse;
 import semothon.team4.clothesup.global.security.CustomUserDetails;
 import semothon.team4.clothesup.shop.dto.ShopDetailResponse;
 import semothon.team4.clothesup.shop.dto.ShopListResponse;
-import semothon.team4.clothesup.shop.dto.ShopPinResponse;
 import semothon.team4.clothesup.shop.dto.ShopPriceDto;
 import semothon.team4.clothesup.shop.dto.ShopPriceRegisterRequest;
 import semothon.team4.clothesup.shop.dto.ShopRegisterRequest;
@@ -32,27 +31,20 @@ public class ShopController {
     private final ShopService shopService;
     private final KakaoMapService kakaoMapService;
 
+    @Operation(summary = "지도 범위 내 세탁소 목록 조회")
     @GetMapping("/map")
-    public ResponseEntity<BaseResponse<List<ShopPinResponse>>> getShopsInBounds(
+    public ResponseEntity<BaseResponse<List<ShopListResponse>>> getShopsInBounds(
+        @AuthenticationPrincipal CustomUserDetails userDetails,
         @RequestParam Double swLat,
         @RequestParam Double swLng,
         @RequestParam Double neLat,
-        @RequestParam Double neLng) {
+        @RequestParam Double neLng,
+        @RequestParam Double lat,
+        @RequestParam Double lng) {
 
         return BaseResponse.ok("세탁소 조회 성공",
-            kakaoMapService.searchLaundryInBounds(swLat, swLng, neLat, neLng)
+            kakaoMapService.searchLaundryInBounds(swLat, swLng, neLat, neLng, lat, lng)
         );
-    }
-
-    @Operation(summary = "주변 세탁소 목록 조회")
-    @GetMapping
-    public ResponseEntity<BaseResponse<List<ShopListResponse>>> getShopsNearby(
-        @AuthenticationPrincipal CustomUserDetails userDetails,
-        @RequestParam double lat,
-        @RequestParam double lng,
-        @RequestParam(defaultValue = "1000") int radius
-    ) {
-        return BaseResponse.ok("세탁소 목록 조회 성공", shopService.getShopsNearby(lat, lng, radius));
     }
 
     @Operation(summary = "세탁소 상세 조회")

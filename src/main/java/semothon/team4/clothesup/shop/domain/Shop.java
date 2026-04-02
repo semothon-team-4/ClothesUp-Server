@@ -36,7 +36,10 @@ public class Shop {
     private LocalTime closeTime;
 
     private Double rate;
+
+    @Column(name = "like_count")
     private Long like;
+
     private Long reviewCount;
 
     //세탁소, 수선집
@@ -44,6 +47,7 @@ public class Shop {
 
     private String description;
     private String phone;
+    private String placeUrl;
     private String imageUrl;
     private LocalDateTime createdAt;
 }
