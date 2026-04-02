@@ -29,7 +29,7 @@ public class ShopService {
     public List<ShopListResponse> getShopsNearby(double lat, double lng, int radius) {
         return shopRepository.findShopsWithinRadius(lat, lng, radius)
             .stream()
-            .map(ShopListResponse::from)
+            .map(shop -> ShopListResponse.from(shop, lat, lng))
             .toList();
     }
 

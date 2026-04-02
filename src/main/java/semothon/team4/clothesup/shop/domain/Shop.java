@@ -6,6 +6,7 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -31,5 +32,22 @@ public class Shop {
     private Double lat;
     private Double lng;
 
+    private LocalTime openTime;
+    private LocalTime closeTime;
+
+    private Double rate;
+
+    @Column(name = "like_count")
+    private Long like;
+
+    private Long reviewCount;
+
+    //세탁소, 수선집
+    private String category;
+
+    private String description;
+    private String phone;
+    private String placeUrl;
+    private String imageUrl;
     private LocalDateTime createdAt;
 }
