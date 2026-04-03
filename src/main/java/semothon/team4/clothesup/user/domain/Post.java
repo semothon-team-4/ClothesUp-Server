@@ -42,9 +42,6 @@ public class Post {
 
     private boolean isPublic;
 
-    @jakarta.persistence.Enumerated(jakarta.persistence.EnumType.STRING)
-    private PostCategory category;
-
     private LocalDateTime createdAt;
 
     public Post(User user, Analysis analysis, String title, String content, boolean isPublic, PostCategory category) {
