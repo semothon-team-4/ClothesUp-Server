@@ -14,6 +14,7 @@ public class ReviewWriteResponse {
     private int rating;
     private String content;
     private List<String> images;
+    private boolean isVerified; // 추가: 영수증 인증 여부
     private LocalDateTime createdAt;
 
     public static ReviewWriteResponse from(Review review, List<String> presignedUrls) {
@@ -24,6 +25,7 @@ public class ReviewWriteResponse {
             .rating(review.getRating())
             .content(review.getContent())
             .images(presignedUrls)
+            .isVerified(review.getReceipt() != null) // 영수증이 있으면 인증됨
             .createdAt(review.getCreatedAt())
             .build();
     }
