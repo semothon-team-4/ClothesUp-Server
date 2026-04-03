@@ -7,4 +7,6 @@ import semothon.team4.clothesup.shop.domain.Shop;
 
 public interface ReviewRepository extends JpaRepository<Review, Long> {
     List<Review> findByShop(Shop shop);
+    long countByUser(semothon.team4.clothesup.user.domain.User user);
+    List<Review> findAllByUserOrderByCreatedAtDesc(semothon.team4.clothesup.user.domain.User user);
 }

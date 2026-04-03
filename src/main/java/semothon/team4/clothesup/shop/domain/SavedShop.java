@@ -1,4 +1,4 @@
-package semothon.team4.clothesup.user.domain;
+package semothon.team4.clothesup.shop.domain;
 
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
@@ -10,28 +10,29 @@ import jakarta.persistence.Table;
 import java.time.LocalDateTime;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import semothon.team4.clothesup.user.domain.User;
 
 @Entity
 @Getter
 @NoArgsConstructor
-@Table(name = "post_like")
-public class PostLike {
+@Table(name = "saved_shop")
+public class SavedShop {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    private Post post;
-
-    @ManyToOne(fetch = FetchType.LAZY, cascade = {jakarta.persistence.CascadeType.MERGE})
     private User user;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    private Shop shop;
 
     private LocalDateTime createdAt;
 
-    public PostLike(Post post, User user) {
-        this.post = post;
+    public SavedShop(User user, Shop shop) {
         this.user = user;
+        this.shop = shop;
         this.createdAt = LocalDateTime.now();
     }
 }
