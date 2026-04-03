@@ -13,7 +13,9 @@ import semothon.team4.clothesup.shop.domain.Shop;
 import semothon.team4.clothesup.shop.dto.KakaoLocalDocument;
 import semothon.team4.clothesup.shop.dto.KakaoSearchResponse;
 import semothon.team4.clothesup.shop.dto.ShopListResponse;
+import semothon.team4.clothesup.shop.repository.SavedShopRepository;
 import semothon.team4.clothesup.shop.repository.ShopRepository;
+import semothon.team4.clothesup.user.domain.User;
 
 @Slf4j
 @Service
@@ -24,13 +26,15 @@ public class KakaoMapService {
 
     private final KakaoLocalApiClient kakaoLocalApiClient;
     private final ShopRepository shopRepository;
+    private final SavedShopRepository savedShopRepository;
     private final S3Uploader s3Uploader;
 
     @Transactional
     public List<ShopListResponse> searchLaundryInBounds(
-        double swLat, double swLng,
-        double neLat, double neLng,
-        double userLat, double userLng) {
+        Double swLat, Double swLng,
+        Double neLat, Double neLng,
+        Double userLat, Double userLng,
+        User user) {
 
         double centerLat = (swLat + neLat) / 2;
         double centerLng = (swLng + neLng) / 2;
@@ -49,8 +53,12 @@ public class KakaoMapService {
         }
 
         return shopRepository.findShopsInBounds(swLat, swLng, neLat, neLng).stream()
-            .map(shop -> ShopListResponse.from(shop, userLat, userLng,
-                shop.getImageUrl() != null ? s3Uploader.generatePresignedUrl(shop.getImageUrl(), PRESIGNED_URL_EXPIRATION) : null))
+            .map(shop -> {
+                boolean isSaved = user != null && savedShopRepository.existsByUserAndShop(user, shop);
+                return ShopListResponse.from(shop, userLat, userLng,
+                    shop.getImageUrl() != null ? s3Uploader.generatePresignedUrl(shop.getImageUrl(), PRESIGNED_URL_EXPIRATION) : null,
+                    isSaved);
+            })
             .toList();
     }
 

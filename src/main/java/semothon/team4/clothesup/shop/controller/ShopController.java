@@ -43,7 +43,7 @@ public class ShopController {
         @RequestParam Double lng) {
 
         return BaseResponse.ok("세탁소 조회 성공",
-            kakaoMapService.searchLaundryInBounds(swLat, swLng, neLat, neLng, lat, lng)
+            kakaoMapService.searchLaundryInBounds(swLat, swLng, neLat, neLng, lat, lng, userDetails != null ? userDetails.getUser() : null)
         );
     }
 
@@ -53,7 +53,21 @@ public class ShopController {
         @AuthenticationPrincipal CustomUserDetails userDetails,
         @PathVariable Long shopId
     ) {
-        return BaseResponse.ok("세탁소 상세 조회 성공", shopService.getShopDetail(shopId));
+        return BaseResponse.ok("세탁소 상세 조회 성공", shopService.getShopDetail(shopId, userDetails != null ? userDetails.getUser() : null));
+    }
+
+    @Operation(summary = "매장 관심 등록 토글")
+    @PostMapping("/{shopId}/save")
+    public ResponseEntity<BaseResponse<Boolean>> toggleSaveShop(
+        @AuthenticationPrincipal CustomUserDetails userDetails,
+        @PathVariable Long shopId
+    ) {
+        if (userDetails == null || userDetails.getUser() == null) {
+            return BaseResponse.unauthorized("인증 정보가 유효하지 않습니다.", null);
+        }
+        boolean isSaved = shopService.toggleSaveShop(shopId, userDetails.getUser());
+        String message = isSaved ? "매장 저장 성공" : "매장 저장 취소 성공";
+        return BaseResponse.ok(message, isSaved);
     }
 
     @Operation(summary = "세탁소 등록")
