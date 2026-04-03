@@ -23,7 +23,7 @@ public class PostResponse {
     private String analysisImageUrl;
     private String analysisName;
     private long likeCount;
-    private long commentCount; // 추가: 댓글 수
+    private long commentCount;
     private boolean isLiked;
     private List<CommentResponse> comments;
     private LocalDateTime createdAt;
