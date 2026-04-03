@@ -6,6 +6,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import semothon.team4.clothesup.user.domain.PostCategory;
 
 @Getter
 @Builder
@@ -13,7 +14,9 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class PostResponse {
     private Long id;
+    private PostCategory category;
     private String title;
+
     private String content;
     private String authorNickname;
     private String authorProfileImage;

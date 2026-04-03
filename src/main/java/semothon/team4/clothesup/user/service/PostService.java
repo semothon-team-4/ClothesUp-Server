@@ -12,6 +12,7 @@ import semothon.team4.clothesup.global.exception.CoreException;
 import semothon.team4.clothesup.global.exception.code.CommonErrorCode;
 import semothon.team4.clothesup.user.domain.Comment;
 import semothon.team4.clothesup.user.domain.Post;
+import semothon.team4.clothesup.user.domain.PostCategory;
 import semothon.team4.clothesup.user.domain.PostLike;
 import semothon.team4.clothesup.user.dto.postdto.*;
 import semothon.team4.clothesup.user.repository.CommentRepository;
@@ -45,19 +46,27 @@ public class PostService {
                 .orElseThrow(() -> new CoreException(CommonErrorCode.RESOURCE_NOT_FOUND));
         }
 
-        Post post = new Post(persistentUser, analysis, request.getTitle(), request.getContent(), request.isPublic());
+        Post post = new Post(persistentUser, analysis, request.getTitle(), request.getContent(), request.isPublic(), request.getCategory());
         return postRepository.save(post).getId();
     }
 
-    // [목록 조회] 댓글 목록을 제외하고 개수만 포함
-    public List<PostListResponse> getPosts(User user, String sort) {
+    // [목록 조회] 카테고리 필터링 추가
+    public List<PostListResponse> getPosts(User user, String sort, PostCategory category) {
         User persistentUser = user != null ? userRepository.findById(user.getId()).orElse(null) : null;
         
         List<Post> posts;
-        if ("POPULAR".equalsIgnoreCase(sort)) {
-            posts = postRepository.findAllOrderByLikesDesc();
+        if (category == null) {
+            if ("POPULAR".equalsIgnoreCase(sort)) {
+                posts = postRepository.findAllOrderByLikesDesc();
+            } else {
+                posts = postRepository.findAllByOrderByCreatedAtDesc();
+            }
         } else {
-            posts = postRepository.findAllByOrderByCreatedAtDesc();
+            if ("POPULAR".equalsIgnoreCase(sort)) {
+                posts = postRepository.findAllByCategoryOrderByLikesDesc(category);
+            } else {
+                posts = postRepository.findAllByCategoryOrderByCreatedAtDesc(category);
+            }
         }
 
         return posts.stream()
@@ -65,12 +74,19 @@ public class PostService {
             .collect(Collectors.toList());
     }
 
-    // [실시간 인기글] 최근 24시간 내 게시글 중 좋아요 순 (최대 5개)
-    public List<PostListResponse> getPopularPosts(User user) {
+    // [실시간 인기글] 최근 24시간 내 게시글 중 좋아요 순 (카테고리 필터링 추가)
+    public List<PostListResponse> getPopularPosts(User user, PostCategory category) {
         User persistentUser = user != null ? userRepository.findById(user.getId()).orElse(null) : null;
         LocalDateTime twentyFourHoursAgo = LocalDateTime.now().minusHours(24);
         
-        return postRepository.findPopularPostsSince(twentyFourHoursAgo).stream()
+        List<Post> posts;
+        if (category == null) {
+            posts = postRepository.findPopularPostsSince(twentyFourHoursAgo);
+        } else {
+            posts = postRepository.findPopularPostsByCategorySince(category, twentyFourHoursAgo);
+        }
+
+        return posts.stream()
             .limit(5)
             .map(post -> convertToPostListResponse(post, persistentUser))
             .collect(Collectors.toList());
@@ -128,6 +144,7 @@ public class PostService {
 
         return PostListResponse.builder()
             .id(post.getId())
+            .category(post.getCategory())
             .title(post.getTitle())
             .content(summaryContent)
             .authorNickname(post.getUser().getNickname())
@@ -158,6 +175,7 @@ public class PostService {
 
         return PostResponse.builder()
             .id(post.getId())
+            .category(post.getCategory())
             .title(post.getTitle())
             .content(post.getContent())
             .authorNickname(post.getUser().getNickname())
