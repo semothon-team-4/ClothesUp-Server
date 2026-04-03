@@ -98,9 +98,14 @@ public class AnalysisService {
             .filter(item -> item.getGrade() != null)
             .collect(Collectors.groupingBy(AnalysisListItemResponse::getGrade, Collectors.counting()));
 
+        long careLabelCount = items.stream()
+            .filter(item -> item.getGrade() == null)
+            .count();
+
         return AnalysisClosetResponse.builder()
             .totalCount(analyses.size())
             .gradeCounts(gradeCounts)
+            .careLabelCount(careLabelCount)
             .items(items)
             .build();
     }
