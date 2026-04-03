@@ -32,4 +32,10 @@ public interface PostRepository extends JpaRepository<Post, Long> {
            "WHERE p.category = :category AND p.createdAt >= :since " +
            "GROUP BY p.id ORDER BY COUNT(pl) DESC, p.createdAt DESC")
     List<Post> findPopularPostsByCategorySince(@Param("category") PostCategory category, @Param("since") LocalDateTime since);
+
+    // 검색 기능: 제목 또는 내용에 키워드가 포함된 게시글 조회
+    List<Post> findByTitleContainingOrContentContainingOrderByCreatedAtDesc(String titleKeyword, String contentKeyword);
+    
+    // 카테고리 내 검색
+    List<Post> findByCategoryAndTitleContainingOrCategoryAndContentContainingOrderByCreatedAtDesc(PostCategory category1, String titleKeyword, PostCategory category2, String contentKeyword);
 }

@@ -94,6 +94,22 @@ public class PostService {
             .collect(Collectors.toList());
     }
 
+    // [검색 기능] 키워드로 게시글 검색
+    public List<PostListResponse> searchPosts(User user, String keyword, PostCategory category) {
+        User persistentUser = user != null ? userRepository.findById(user.getId()).orElse(null) : null;
+        
+        List<Post> posts;
+        if (category == null) {
+            posts = postRepository.findByTitleContainingOrContentContainingOrderByCreatedAtDesc(keyword, keyword);
+        } else {
+            posts = postRepository.findByCategoryAndTitleContainingOrCategoryAndContentContainingOrderByCreatedAtDesc(category, keyword, category, keyword);
+        }
+
+        return posts.stream()
+            .map(post -> convertToPostListResponse(post, persistentUser))
+            .collect(Collectors.toList());
+    }
+
     // [상세 조회] 모든 정보와 댓글 목록 포함
     public PostResponse getPostDetail(Long postId, User user) {
         User persistentUser = user != null ? userRepository.findById(user.getId()).orElse(null) : null;

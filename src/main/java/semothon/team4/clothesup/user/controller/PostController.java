@@ -72,6 +72,17 @@ public class PostController {
         return BaseResponse.ok("실시간 인기글 조회 성공", responses);
     }
 
+    @Operation(summary = "게시글 검색", description = "키워드로 게시글을 검색합니다. 제목이나 내용에 키워드가 포함된 글을 최신순으로 반환합니다.")
+    @GetMapping("/search")
+    public ResponseEntity<BaseResponse<List<PostListResponse>>> searchPosts(
+        @RequestParam String keyword,
+        @RequestParam(required = false) PostCategory category,
+        @AuthenticationPrincipal CustomUserDetails userDetails
+    ) {
+        List<PostListResponse> responses = postService.searchPosts(userDetails != null ? userDetails.getUser() : null, keyword, category);
+        return BaseResponse.ok("게시글 검색 성공 (키워드: " + keyword + ")", responses);
+    }
+
     @Operation(summary = "게시글 상세 조회", description = "특정 게시글의 상세 내용과 댓글 리스트를 조회합니다.")
     @GetMapping("/{postId}")
     public ResponseEntity<BaseResponse<PostResponse>> getPostDetail(
