@@ -6,6 +6,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -14,8 +15,12 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 import semothon.team4.clothesup.global.common.BaseResponse;
+import semothon.team4.clothesup.global.exception.CoreException;
+import semothon.team4.clothesup.global.exception.code.CommonErrorCode;
 import semothon.team4.clothesup.global.security.CustomUserDetails;
 import semothon.team4.clothesup.user.domain.PostCategory;
 import semothon.team4.clothesup.user.dto.postdto.CommentRequest;
@@ -32,21 +37,25 @@ public class PostController {
 
     private final PostService postService;
 
-    @Operation(summary = "게시글 작성", description = "커뮤니티에 게시글을 작성합니다. 카테고리(LAUNDRY_TIP, REPAIR, RECOMMEND, CONDITION)를 포함해야 합니다.")
+    @Operation(summary = "게시글 작성", description = "커뮤니티에 게시글을 작성합니다. analysisId와 image는 동시에 사용할 수 없습니다.")
     @ApiResponses({
         @ApiResponse(responseCode = "201", description = "게시글 작성 성공")
     })
-    @PostMapping
+    @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<BaseResponse<Long>> createPost(
-        @jakarta.validation.Valid @RequestBody PostCreateRequest request,
+        @RequestPart("data") @jakarta.validation.Valid PostCreateRequest request,
+        @RequestPart(value = "image", required = false) MultipartFile image,
         @AuthenticationPrincipal CustomUserDetails userDetails
     ) {
         if (userDetails == null || userDetails.getUser() == null) {
             log.error("인증 정보(UserDetails)가 null입니다.");
             return BaseResponse.unauthorized("인증 정보가 유효하지 않습니다.", null);
         }
+        if (request.getAnalysisId() != null && image != null && !image.isEmpty()) {
+            throw new CoreException(CommonErrorCode.INVALID_PARAMETER);
+        }
         log.info("게시글 작성 요청 - 유저: {}, 제목: {}, 카테고리: {}", userDetails.getUser().getEmail(), request.getTitle(), request.getCategory());
-        Long postId = postService.createPost(request, userDetails.getUser());
+        Long postId = postService.createPost(request, image, userDetails.getUser());
         return BaseResponse.created("게시글 작성 성공", postId);
     }
 

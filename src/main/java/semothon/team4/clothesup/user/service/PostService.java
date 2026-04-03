@@ -7,10 +7,12 @@ import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 import semothon.team4.clothesup.analysis.domain.Analysis;
 import semothon.team4.clothesup.analysis.repository.AnalysisRepository;
 import semothon.team4.clothesup.global.common.S3Service;
 import semothon.team4.clothesup.global.exception.CoreException;
+import semothon.team4.clothesup.global.s3.S3Uploader;
 import semothon.team4.clothesup.global.exception.code.CommonErrorCode;
 import semothon.team4.clothesup.user.domain.Comment;
 import semothon.team4.clothesup.user.domain.Post;
@@ -34,22 +36,28 @@ public class PostService {
     private final AnalysisRepository analysisRepository;
     private final UserRepository userRepository;
     private final S3Service s3Service;
+    private final S3Uploader s3Uploader;
 
     @Transactional
-    public Long createPost(PostCreateRequest request, User user) {
+    public Long createPost(PostCreateRequest request, MultipartFile image, User user) {
         if (user == null || user.getId() == null) {
             throw new CoreException(semothon.team4.clothesup.global.exception.code.UserErrorCode.USER_NOT_FOUND);
         }
         User persistentUser = userRepository.findById(user.getId())
             .orElseThrow(() -> new CoreException(semothon.team4.clothesup.global.exception.code.UserErrorCode.USER_NOT_FOUND));
 
-        Analysis analysis = null;
+        Post post;
         if (request.getAnalysisId() != null) {
-            analysis = analysisRepository.findById(request.getAnalysisId())
+            Analysis analysis = analysisRepository.findById(request.getAnalysisId())
                 .orElseThrow(() -> new CoreException(CommonErrorCode.RESOURCE_NOT_FOUND));
+            post = new Post(persistentUser, analysis, request.getTitle(), request.getContent(), request.isPublic(), request.getCategory());
+        } else if (image != null && !image.isEmpty()) {
+            String imageKey = s3Uploader.upload(image, "posts");
+            post = new Post(persistentUser, imageKey, request.getTitle(), request.getContent(), request.isPublic(), request.getCategory());
+        } else {
+            post = new Post(persistentUser, (Analysis) null, request.getTitle(), request.getContent(), request.isPublic(), request.getCategory());
         }
 
-        Post post = new Post(persistentUser, analysis, request.getTitle(), request.getContent(), request.isPublic(), request.getCategory());
         return postRepository.save(post).getId();
     }
 
@@ -194,6 +202,7 @@ public class PostService {
             .authorProfileImage(s3Service.getPresignedUrl(post.getUser().getProfileImage()))
             .analysisImageUrl(post.getAnalysis() != null ? s3Service.getPresignedUrl(post.getAnalysis().getImageUrl()) : null)
             .analysisName(post.getAnalysis() != null ? post.getAnalysis().getName() : null)
+            .postImageUrl(post.getImageUrl() != null ? s3Service.getPresignedUrl(post.getImageUrl()) : null)
             .likeCount(likeCount)
             .commentCount(commentCount)
             .isLiked(isLiked)
@@ -225,6 +234,7 @@ public class PostService {
             .authorProfileImage(s3Service.getPresignedUrl(post.getUser().getProfileImage()))
             .analysisImageUrl(post.getAnalysis() != null ? s3Service.getPresignedUrl(post.getAnalysis().getImageUrl()) : null)
             .analysisName(post.getAnalysis() != null ? post.getAnalysis().getName() : null)
+            .postImageUrl(post.getImageUrl() != null ? s3Service.getPresignedUrl(post.getImageUrl()) : null)
             .likeCount(likeCount)
             .commentCount(comments.size())
             .isLiked(isLiked)

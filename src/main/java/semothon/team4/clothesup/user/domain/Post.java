@@ -42,11 +42,23 @@ public class Post {
 
     private boolean isPublic;
 
+    private String imageUrl;
+
     private LocalDateTime createdAt;
 
     public Post(User user, Analysis analysis, String title, String content, boolean isPublic, PostCategory category) {
         this.user = user;
         this.analysis = analysis;
+        this.title = title;
+        this.content = content;
+        this.isPublic = isPublic;
+        this.category = category;
+        this.createdAt = LocalDateTime.now();
+    }
+
+    public Post(User user, String imageUrl, String title, String content, boolean isPublic, PostCategory category) {
+        this.user = user;
+        this.imageUrl = imageUrl;
         this.title = title;
         this.content = content;
         this.isPublic = isPublic;
