@@ -33,6 +33,7 @@ public class ConditionAnalysis {
     private int stainLevel;
     private int damageLevel;
     private String recommendation;
+    private String storageTip;
 
     public enum Grade {
         A, B, C, D

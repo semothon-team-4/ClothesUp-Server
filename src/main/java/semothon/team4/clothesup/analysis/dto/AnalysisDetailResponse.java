@@ -59,6 +59,7 @@ public class AnalysisDetailResponse {
         private int stainLevel;
         private int damageLevel;
         private String recommendation;
+        private String storageTip;
 
         public static ConditionDto from(ConditionAnalysis conditionAnalysis) {
             return ConditionDto.builder()
@@ -67,6 +68,7 @@ public class AnalysisDetailResponse {
                 .stainLevel(conditionAnalysis.getStainLevel())
                 .damageLevel(conditionAnalysis.getDamageLevel())
                 .recommendation(conditionAnalysis.getRecommendation())
+                .storageTip(conditionAnalysis.getStorageTip())
                 .build();
         }
     }
