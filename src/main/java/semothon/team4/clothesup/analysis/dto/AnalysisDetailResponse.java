@@ -43,7 +43,9 @@ public class AnalysisDetailResponse {
                 .labels(careLabels.stream()
                     .map(cl -> LabelItem.builder()
                         .id(cl.getCareLabelList().getId())
-                        .name(cl.getCareLabelList().getName())
+                        .name(cl.getCareLabelList().getDesc() != null
+                            ? cl.getCareLabelList().getDesc()
+                            : cl.getCareLabelList().getName())
                         .imageUrl(presigner.apply(cl.getCareLabelList().getImageUrl()))
                         .build())
                     .toList())

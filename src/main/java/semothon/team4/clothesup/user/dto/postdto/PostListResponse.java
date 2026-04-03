@@ -19,9 +19,8 @@ public class PostListResponse {
     private String content;
     private String authorNickname;
     private String authorProfileImage;
-    private String analysisImageUrl;
+    private String imageUrl;
     private String analysisName;
-    private String postImageUrl;
     private long likeCount;
     private long commentCount;
     private boolean isLiked;

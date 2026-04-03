@@ -150,7 +150,9 @@ public class ProfileService {
             .content(summaryContent)
             .authorNickname(post.getUser().getNickname())
             .authorProfileImage(s3Service.getPresignedUrl(post.getUser().getProfileImage()))
-            .analysisImageUrl(post.getAnalysis() != null ? s3Service.getPresignedUrl(post.getAnalysis().getImageUrl()) : null)
+            .imageUrl(post.getAnalysis() != null
+                ? s3Service.getPresignedUrl(post.getAnalysis().getImageUrl())
+                : post.getImageUrl() != null ? s3Service.getPresignedUrl(post.getImageUrl()) : null)
             .analysisName(post.getAnalysis() != null ? post.getAnalysis().getName() : null)
             .likeCount(likeCount)
             .commentCount(commentCount)
