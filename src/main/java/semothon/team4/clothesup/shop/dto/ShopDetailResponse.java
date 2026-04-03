@@ -17,9 +17,10 @@ public class ShopDetailResponse {
     private Double lat;
     private Double lng;
     private List<ShopPriceDto> prices;
+    private Boolean isSaved; // 관심 매장 등록 여부
     private LocalDateTime createdAt;
 
-    public static ShopDetailResponse from(Shop shop, List<ShopPrice> prices) {
+    public static ShopDetailResponse from(Shop shop, List<ShopPrice> prices, boolean isSaved) {
         return ShopDetailResponse.builder()
             .id(shop.getId())
             .placeId(shop.getPlaceId())
@@ -28,6 +29,7 @@ public class ShopDetailResponse {
             .lat(shop.getLat())
             .lng(shop.getLng())
             .prices(prices.stream().map(ShopPriceDto::from).toList())
+            .isSaved(isSaved)
             .createdAt(shop.getCreatedAt())
             .build();
     }
