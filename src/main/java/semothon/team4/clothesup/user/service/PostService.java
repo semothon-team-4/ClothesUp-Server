@@ -8,6 +8,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import semothon.team4.clothesup.analysis.domain.Analysis;
 import semothon.team4.clothesup.analysis.repository.AnalysisRepository;
+import semothon.team4.clothesup.global.common.S3Service;
 import semothon.team4.clothesup.global.exception.CoreException;
 import semothon.team4.clothesup.global.exception.code.CommonErrorCode;
 import semothon.team4.clothesup.user.domain.Comment;
@@ -31,6 +32,7 @@ public class PostService {
     private final PostLikeRepository postLikeRepository;
     private final AnalysisRepository analysisRepository;
     private final UserRepository userRepository;
+    private final S3Service s3Service;
 
     @Transactional
     public Long createPost(PostCreateRequest request, User user) {
@@ -148,8 +150,8 @@ public class PostService {
             .title(post.getTitle())
             .content(summaryContent)
             .authorNickname(post.getUser().getNickname())
-            .authorProfileImage(post.getUser().getProfileImage())
-            .analysisImageUrl(post.getAnalysis() != null ? post.getAnalysis().getImageUrl() : null)
+            .authorProfileImage(s3Service.getPresignedUrl(post.getUser().getProfileImage()))
+            .analysisImageUrl(post.getAnalysis() != null ? s3Service.getPresignedUrl(post.getAnalysis().getImageUrl()) : null)
             .analysisName(post.getAnalysis() != null ? post.getAnalysis().getName() : null)
             .likeCount(likeCount)
             .commentCount(commentCount)
@@ -165,7 +167,7 @@ public class PostService {
                 .id(comment.getId())
                 .content(comment.getContent())
                 .authorNickname(comment.getUser().getNickname())
-                .authorProfileImage(comment.getUser().getProfileImage())
+                .authorProfileImage(s3Service.getPresignedUrl(comment.getUser().getProfileImage()))
                 .createdAt(comment.getCreatedAt())
                 .build())
             .collect(Collectors.toList());
@@ -179,8 +181,8 @@ public class PostService {
             .title(post.getTitle())
             .content(post.getContent())
             .authorNickname(post.getUser().getNickname())
-            .authorProfileImage(post.getUser().getProfileImage())
-            .analysisImageUrl(post.getAnalysis() != null ? post.getAnalysis().getImageUrl() : null)
+            .authorProfileImage(s3Service.getPresignedUrl(post.getUser().getProfileImage()))
+            .analysisImageUrl(post.getAnalysis() != null ? s3Service.getPresignedUrl(post.getAnalysis().getImageUrl()) : null)
             .analysisName(post.getAnalysis() != null ? post.getAnalysis().getName() : null)
             .likeCount(likeCount)
             .commentCount(comments.size())
