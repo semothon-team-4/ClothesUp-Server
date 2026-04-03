@@ -65,6 +65,35 @@ public class AnalysisService {
         return AnalysisDetailResponse.fromCondition(analysis, conditionAnalysis, presignedUrl);
     }
 
+    @Transactional
+    public AnalysisDetailResponse requestConditionAnalysis(
+        User user, String name, String category, MultipartFile image,
+        String grade, int stainLevel, int damageLevel, String recommendation, String storageTip
+    ) {
+        String key = s3Uploader.upload(image, "analyses");
+
+        Analysis analysis = analysisRepository.save(Analysis.builder()
+            .user(user)
+            .name(name)
+            .category(category)
+            .imageUrl(key)
+            .createdAt(LocalDateTime.now())
+            .build());
+
+        ConditionAnalysis conditionAnalysis = conditionAnalysisRepository.save(
+            ConditionAnalysis.builder()
+                .analysis(analysis)
+                .grade(ConditionAnalysis.Grade.valueOf(grade.toUpperCase()))
+                .stainLevel(stainLevel)
+                .damageLevel(damageLevel)
+                .recommendation(recommendation)
+                .storageTip(storageTip)
+                .build());
+
+        String presignedUrl = s3Uploader.generatePresignedUrl(key, PRESIGNED_URL_EXPIRATION);
+        return AnalysisDetailResponse.fromCondition(analysis, conditionAnalysis, presignedUrl);
+    }
+
     public AnalysisClosetResponse getMyAnalyses(User user) {
         List<Analysis> analyses = analysisRepository.findByUser(user);
 

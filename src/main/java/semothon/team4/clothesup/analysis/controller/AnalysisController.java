@@ -57,6 +57,24 @@ public class AnalysisController {
             analysisService.getAnalysisDetail(userDetails.getUser(), analysisId));
     }
 
+    @Operation(summary = "옷 상태 분석 결과 저장")
+    @PostMapping(value = "/condition", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<BaseResponse<AnalysisDetailResponse>> requestConditionAnalysis(
+        @AuthenticationPrincipal CustomUserDetails userDetails,
+        @RequestParam String name,
+        @RequestParam String category,
+        @RequestParam MultipartFile image,
+        @RequestParam String grade,
+        @RequestParam int stainLevel,
+        @RequestParam int damageLevel,
+        @RequestParam String recommendation,
+        @RequestParam String storageTip
+    ) {
+        return BaseResponse.created("내 옷장에 저장 성공",
+            analysisService.requestConditionAnalysis(
+                userDetails.getUser(), name, category, image, grade, stainLevel, damageLevel, recommendation, storageTip));
+    }
+
     @Operation(summary = "분석 항목 삭제")
     @DeleteMapping("/{analysisId}")
     public ResponseEntity<BaseResponse<Void>> deleteAnalysis(
