@@ -46,8 +46,10 @@ public class ReviewService {
         String content, List<MultipartFile> images) {
         Shop shop = shopRepository.findById(shopId)
             .orElseThrow(() -> new CoreException(ShopErrorCode.SHOP_NOT_FOUND));
-        Receipt receipt = receiptRepository.findById(receiptId)
-            .orElseThrow(() -> new CoreException(ReceiptErrorCode.RECEIPT_NOT_FOUND));
+        Receipt receipt = (receiptId != null)
+            ? receiptRepository.findById(receiptId)
+                .orElseThrow(() -> new CoreException(ReceiptErrorCode.RECEIPT_NOT_FOUND))
+            : null;
 
         Review review = reviewRepository.save(Review.builder()
             .user(user)
