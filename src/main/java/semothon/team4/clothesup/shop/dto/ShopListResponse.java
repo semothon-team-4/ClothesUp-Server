@@ -23,8 +23,9 @@ public class ShopListResponse {
     private Double rate;
     private Long reviewCount;
     private Integer distance; // 미터 단위
+    private Boolean isSaved; // 관심 매장 등록 여부
 
-    public static ShopListResponse from(Shop shop, double userLat, double userLng, String imageUrl) {
+    public static ShopListResponse from(Shop shop, double userLat, double userLng, String imageUrl, boolean isSaved) {
         Boolean isOpen = null;
         if (shop.getOpenTime() != null && shop.getCloseTime() != null) {
             LocalTime now = LocalTime.now();
@@ -54,6 +55,7 @@ public class ShopListResponse {
             .rate(shop.getRate())
             .reviewCount(shop.getReviewCount())
             .distance(distance)
+            .isSaved(isSaved)
             .build();
     }
 }

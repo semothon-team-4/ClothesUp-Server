@@ -1,6 +1,7 @@
 package semothon.team4.clothesup.user.service;
 
 import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
@@ -60,31 +61,55 @@ public class PostService {
         return postRepository.save(post).getId();
     }
 
-    // [목록 조회] 카테고리 필터링 추가
+    // [목록 조회] RECOMMENDED, LATEST, POPULAR 지원
     public List<PostListResponse> getPosts(User user, String sort, PostCategory category) {
         User persistentUser = user != null ? userRepository.findById(user.getId()).orElse(null) : null;
         
         List<Post> posts;
         if (category == null) {
-            if ("POPULAR".equalsIgnoreCase(sort)) {
-                posts = postRepository.findAllOrderByLikesDesc();
-            } else {
-                posts = postRepository.findAllByOrderByCreatedAtDesc();
-            }
+            posts = postRepository.findAll();
         } else {
-            if ("POPULAR".equalsIgnoreCase(sort)) {
-                posts = postRepository.findAllByCategoryOrderByLikesDesc(category);
-            } else {
-                posts = postRepository.findAllByCategoryOrderByCreatedAtDesc(category);
-            }
+            posts = postRepository.findAllByCategoryOrderByCreatedAtDesc(category);
         }
 
-        return posts.stream()
-            .map(post -> convertToPostListResponse(post, persistentUser))
-            .collect(Collectors.toList());
+        // 정렬 처리
+        if ("POPULAR".equalsIgnoreCase(sort)) {
+            // 인기순 (단순 좋아요 순)
+            return posts.stream()
+                .sorted((p1, p2) -> Long.compare(postLikeRepository.countByPost(p2), postLikeRepository.countByPost(p1)))
+                .map(post -> convertToPostListResponse(post, persistentUser))
+                .collect(Collectors.toList());
+        } else if ("RECOMMENDED".equalsIgnoreCase(sort)) {
+            // 추천순 (가중치 + 시간 감쇄 알고리즘)
+            return posts.stream()
+                .sorted((p1, p2) -> Double.compare(calculateRecommendationScore(p2), calculateRecommendationScore(p1)))
+                .map(post -> convertToPostListResponse(post, persistentUser))
+                .collect(Collectors.toList());
+        } else {
+            // 최신순 (기본값)
+            return posts.stream()
+                .sorted((p1, p2) -> p2.getCreatedAt().compareTo(p1.getCreatedAt()))
+                .map(post -> convertToPostListResponse(post, persistentUser))
+                .collect(Collectors.toList());
+        }
     }
 
-    // [실시간 인기글] 최근 24시간 내 게시글 중 좋아요 순 (카테고리 필터링 추가)
+    // 추천 점수 계산 (Time Decay 알고리즘)
+    private double calculateRecommendationScore(Post post) {
+        long likes = postLikeRepository.countByPost(post);
+        long comments = commentRepository.countByPost(post);
+        
+        // (좋아요*3 + 댓글*5 + 기본점수1)
+        double weightScore = (likes * 3.0) + (comments * 5.0) + 1.0;
+        
+        // 작성 후 경과 시간(시간 단위)
+        long hoursSince = ChronoUnit.HOURS.between(post.getCreatedAt(), LocalDateTime.now());
+        
+        // 점수 = 가중치 점수 / (경과시간 + 2)^1.8
+        return weightScore / Math.pow(hoursSince + 2.0, 1.8);
+    }
+
+    // [실시간 인기글] 최근 24시간 내 게시글 중 좋아요 순 (최대 5개)
     public List<PostListResponse> getPopularPosts(User user, PostCategory category) {
         User persistentUser = user != null ? userRepository.findById(user.getId()).orElse(null) : null;
         LocalDateTime twentyFourHoursAgo = LocalDateTime.now().minusHours(24);
@@ -98,6 +123,22 @@ public class PostService {
 
         return posts.stream()
             .limit(5)
+            .map(post -> convertToPostListResponse(post, persistentUser))
+            .collect(Collectors.toList());
+    }
+
+    // [검색 기능] 키워드로 게시글 검색
+    public List<PostListResponse> searchPosts(User user, String keyword, PostCategory category) {
+        User persistentUser = user != null ? userRepository.findById(user.getId()).orElse(null) : null;
+        
+        List<Post> posts;
+        if (category == null) {
+            posts = postRepository.findByTitleContainingOrContentContainingOrderByCreatedAtDesc(keyword, keyword);
+        } else {
+            posts = postRepository.findByCategoryAndTitleContainingOrCategoryAndContentContainingOrderByCreatedAtDesc(category, keyword, category, keyword);
+        }
+
+        return posts.stream()
             .map(post -> convertToPostListResponse(post, persistentUser))
             .collect(Collectors.toList());
     }
