@@ -12,5 +12,6 @@ public class AnalysisClosetResponse {
 
     private int totalCount;
     private Map<Grade, Long> gradeCounts;
+    private long careLabelCount;
     private List<AnalysisListItemResponse> items;
 }
