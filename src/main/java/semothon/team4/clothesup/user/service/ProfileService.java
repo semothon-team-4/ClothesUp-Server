@@ -5,11 +5,13 @@ import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import semothon.team4.clothesup.global.common.S3Service;
 import semothon.team4.clothesup.global.exception.CoreException;
 import semothon.team4.clothesup.global.exception.code.CommonErrorCode;
 import semothon.team4.clothesup.global.exception.code.UserErrorCode;
 import semothon.team4.clothesup.shop.domain.SavedShop;
 import semothon.team4.clothesup.shop.domain.Shop;
+import semothon.team4.clothesup.shop.repository.ReviewImageRepository;
 import semothon.team4.clothesup.shop.repository.ReviewRepository;
 import semothon.team4.clothesup.shop.repository.SavedShopRepository;
 import semothon.team4.clothesup.shop.repository.ShopRepository;
@@ -33,8 +35,10 @@ public class ProfileService {
     private final SavedShopRepository savedShopRepository;
     private final PostLikeRepository postLikeRepository;
     private final ReviewRepository reviewRepository;
+    private final ReviewImageRepository reviewImageRepository;
     private final ShopRepository shopRepository;
     private final CommentRepository commentRepository;
+    private final S3Service s3Service;
 
     public UserProfileResponse getMyProfile(User user) {
         User persistentUser = userRepository.findById(user.getId())
@@ -46,7 +50,7 @@ public class ProfileService {
 
         return UserProfileResponse.builder()
             .nickname(persistentUser.getNickname())
-            .profileImage(persistentUser.getProfileImage())
+            .profileImage(s3Service.getPresignedUrl(persistentUser.getProfileImage()))
             .savedShopCount(savedShopCount)
             .likedPostCount(likedPostCount)
             .reviewCount(reviewCount)
@@ -63,7 +67,7 @@ public class ProfileService {
                 return SavedShopResponse.builder()
                     .id(shop.getId())
                     .name(shop.getName())
-                    .imageUrl(shop.getImageUrl())
+                    .imageUrl(s3Service.getPresignedUrl(shop.getImageUrl()))
                     .openTime(shop.getOpenTime() != null ? shop.getOpenTime().toString() : null)
                     .closeTime(shop.getCloseTime() != null ? shop.getCloseTime().toString() : null)
                     .rate(shop.getRate())
@@ -89,14 +93,22 @@ public class ProfileService {
             .orElseThrow(() -> new CoreException(UserErrorCode.USER_NOT_FOUND));
 
         return reviewRepository.findAllByUserOrderByCreatedAtDesc(persistentUser).stream()
-            .map(review -> ReviewResponse.builder()
-                .id(review.getId())
-                .shopId(review.getShop().getId())
-                .shopName(review.getShop().getName())
-                .rating(review.getRating())
-                .content(review.getContent())
-                .createdAt(review.getCreatedAt())
-                .build())
+            .map(review -> {
+                List<String> imageUrls = reviewImageRepository.findByReview(review).stream()
+                    .map(img -> s3Service.getPresignedUrl(img.getImageUrl()))
+                    .collect(Collectors.toList());
+
+                return ReviewResponse.builder()
+                    .id(review.getId())
+                    .shopId(review.getShop().getId())
+                    .shopName(review.getShop().getName())
+                    .rating(review.getRating())
+                    .content(review.getContent())
+                    .imageUrls(imageUrls)
+                    .isVerified(review.getReceipt() != null)
+                    .createdAt(review.getCreatedAt())
+                    .build();
+            })
             .collect(Collectors.toList());
     }
 
@@ -111,6 +123,7 @@ public class ProfileService {
         return savedShopRepository.findByUserAndShop(persistentUser, shop)
             .map(savedShop -> {
                 savedShopRepository.delete(savedShop);
+                savedShopRepository.flush(); // 즉각 반영
                 shop.updateLikeCount(-1); // 좋아요 수 감소
                 return false;
             })
@@ -136,8 +149,8 @@ public class ProfileService {
             .title(post.getTitle())
             .content(summaryContent)
             .authorNickname(post.getUser().getNickname())
-            .authorProfileImage(post.getUser().getProfileImage())
-            .analysisImageUrl(post.getAnalysis() != null ? post.getAnalysis().getImageUrl() : null)
+            .authorProfileImage(s3Service.getPresignedUrl(post.getUser().getProfileImage()))
+            .analysisImageUrl(post.getAnalysis() != null ? s3Service.getPresignedUrl(post.getAnalysis().getImageUrl()) : null)
             .analysisName(post.getAnalysis() != null ? post.getAnalysis().getName() : null)
             .likeCount(likeCount)
             .commentCount(commentCount)

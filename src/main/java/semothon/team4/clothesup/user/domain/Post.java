@@ -35,14 +35,18 @@ public class Post {
 
     private boolean isPublic;
 
+    @jakarta.persistence.Enumerated(jakarta.persistence.EnumType.STRING)
+    private PostCategory category;
+
     private LocalDateTime createdAt;
 
-    public Post(User user, Analysis analysis, String title, String content, boolean isPublic) {
+    public Post(User user, Analysis analysis, String title, String content, boolean isPublic, PostCategory category) {
         this.user = user;
         this.analysis = analysis;
         this.title = title;
         this.content = content;
         this.isPublic = isPublic;
+        this.category = category;
         this.createdAt = LocalDateTime.now();
     }
 }

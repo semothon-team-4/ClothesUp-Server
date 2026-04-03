@@ -31,41 +31,55 @@ public class PostController {
 
     private final PostService postService;
 
-    @Operation(summary = "게시글 작성", description = "커뮤니티에 게시글을 작성합니다.")
+    @Operation(summary = "게시글 작성", description = "커뮤니티에 게시글을 작성합니다. 카테고리(LAUNDRY_TIP, REPAIR, RECOMMEND, CONDITION)를 포함해야 합니다.")
     @ApiResponses({
         @ApiResponse(responseCode = "201", description = "게시글 작성 성공")
     })
     @PostMapping
     public ResponseEntity<BaseResponse<Long>> createPost(
-        @RequestBody PostCreateRequest request,
+        @jakarta.validation.Valid @RequestBody PostCreateRequest request,
         @AuthenticationPrincipal CustomUserDetails userDetails
     ) {
         if (userDetails == null || userDetails.getUser() == null) {
             log.error("인증 정보(UserDetails)가 null입니다.");
             return BaseResponse.unauthorized("인증 정보가 유효하지 않습니다.", null);
         }
-        log.info("게시글 작성 요청 - 유저: {}, 제목: {}", userDetails.getUser().getEmail(), request.getTitle());
+        log.info("게시글 작성 요청 - 유저: {}, 제목: {}, 카테고리: {}", userDetails.getUser().getEmail(), request.getTitle(), request.getCategory());
         Long postId = postService.createPost(request, userDetails.getUser());
         return BaseResponse.created("게시글 작성 성공", postId);
     }
 
-    @Operation(summary = "게시글 목록 조회", description = "커뮤니티의 게시글을 정렬하여 조회합니다. (댓글 리스트 제외)")
+    @Operation(summary = "게시글 목록 조회", description = "커뮤니티의 게시글을 정렬 및 카테고리별로 조회합니다. sort: RECOMMENDED, LATEST, POPULAR")
     @GetMapping
     public ResponseEntity<BaseResponse<List<PostListResponse>>> getPosts(
-        @RequestParam(defaultValue = "LATEST") String sort,
+        @RequestParam(defaultValue = "RECOMMENDED") String sort,
+        @RequestParam(required = false) semothon.team4.clothesup.user.domain.PostCategory category,
         @AuthenticationPrincipal CustomUserDetails userDetails
     ) {
-        List<PostListResponse> responses = postService.getPosts(userDetails != null ? userDetails.getUser() : null, sort);
-        return BaseResponse.ok("게시글 목록 조회 성공 (" + sort + ")", responses);
+        List<PostListResponse> responses = postService.getPosts(userDetails != null ? userDetails.getUser() : null, sort, category);
+        String categoryName = category == null ? "전체" : category.getDescription();
+        return BaseResponse.ok("게시글 목록 조회 성공 (" + categoryName + " / " + sort + ")", responses);
     }
 
-    @Operation(summary = "실시간 인기글 조회", description = "상단 슬라이드용 실시간 인기글을 조회합니다. (댓글 리스트 제외)")
+    @Operation(summary = "실시간 인기글 조회", description = "상단 슬라이드용 실시간 인기글을 카테고리별로 조회합니다.")
     @GetMapping("/popular")
     public ResponseEntity<BaseResponse<List<PostListResponse>>> getPopularPosts(
+        @RequestParam(required = false) semothon.team4.clothesup.user.domain.PostCategory category,
         @AuthenticationPrincipal CustomUserDetails userDetails
     ) {
-        List<PostListResponse> responses = postService.getPopularPosts(userDetails != null ? userDetails.getUser() : null);
+        List<PostListResponse> responses = postService.getPopularPosts(userDetails != null ? userDetails.getUser() : null, category);
         return BaseResponse.ok("실시간 인기글 조회 성공", responses);
+    }
+
+    @Operation(summary = "게시글 검색", description = "키워드로 게시글을 검색합니다. 제목이나 내용에 키워드가 포함된 글을 반환합니다.")
+    @GetMapping("/search")
+    public ResponseEntity<BaseResponse<List<PostListResponse>>> searchPosts(
+        @RequestParam String keyword,
+        @RequestParam(required = false) semothon.team4.clothesup.user.domain.PostCategory category,
+        @AuthenticationPrincipal CustomUserDetails userDetails
+    ) {
+        List<PostListResponse> responses = postService.searchPosts(userDetails != null ? userDetails.getUser() : null, keyword, category);
+        return BaseResponse.ok("게시글 검색 성공 (키워드: " + keyword + ")", responses);
     }
 
     @Operation(summary = "게시글 상세 조회", description = "특정 게시글의 상세 내용과 댓글 리스트를 조회합니다.")

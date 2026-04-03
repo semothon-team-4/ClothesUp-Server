@@ -1,6 +1,7 @@
 package semothon.team4.clothesup.user.service;
 
 import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
@@ -8,10 +9,12 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import semothon.team4.clothesup.analysis.domain.Analysis;
 import semothon.team4.clothesup.analysis.repository.AnalysisRepository;
+import semothon.team4.clothesup.global.common.S3Service;
 import semothon.team4.clothesup.global.exception.CoreException;
 import semothon.team4.clothesup.global.exception.code.CommonErrorCode;
 import semothon.team4.clothesup.user.domain.Comment;
 import semothon.team4.clothesup.user.domain.Post;
+import semothon.team4.clothesup.user.domain.PostCategory;
 import semothon.team4.clothesup.user.domain.PostLike;
 import semothon.team4.clothesup.user.dto.postdto.*;
 import semothon.team4.clothesup.user.repository.CommentRepository;
@@ -30,6 +33,7 @@ public class PostService {
     private final PostLikeRepository postLikeRepository;
     private final AnalysisRepository analysisRepository;
     private final UserRepository userRepository;
+    private final S3Service s3Service;
 
     @Transactional
     public Long createPost(PostCreateRequest request, User user) {
@@ -45,19 +49,73 @@ public class PostService {
                 .orElseThrow(() -> new CoreException(CommonErrorCode.RESOURCE_NOT_FOUND));
         }
 
-        Post post = new Post(persistentUser, analysis, request.getTitle(), request.getContent(), request.isPublic());
+        Post post = new Post(persistentUser, analysis, request.getTitle(), request.getContent(), request.isPublic(), request.getCategory());
         return postRepository.save(post).getId();
     }
 
-    // [목록 조회] 댓글 목록을 제외하고 개수만 포함
-    public List<PostListResponse> getPosts(User user, String sort) {
+    // [목록 조회] RECOMMENDED, LATEST, POPULAR 지원
+    public List<PostListResponse> getPosts(User user, String sort, PostCategory category) {
         User persistentUser = user != null ? userRepository.findById(user.getId()).orElse(null) : null;
         
         List<Post> posts;
-        if ("POPULAR".equalsIgnoreCase(sort)) {
-            posts = postRepository.findAllOrderByLikesDesc();
+        if (category == null) {
+            posts = postRepository.findAll();
         } else {
-            posts = postRepository.findAllByOrderByCreatedAtDesc();
+            posts = postRepository.findAllByCategoryOrderByCreatedAtDesc(category);
+        }
+
+        // 정렬 처리
+        if ("POPULAR".equalsIgnoreCase(sort)) {
+            return posts.stream()
+                .sorted((p1, p2) -> Long.compare(postLikeRepository.countByPost(p2), postLikeRepository.countByPost(p1)))
+                .map(post -> convertToPostListResponse(post, persistentUser))
+                .collect(Collectors.toList());
+        } else if ("RECOMMENDED".equalsIgnoreCase(sort)) {
+            return posts.stream()
+                .sorted((p1, p2) -> Double.compare(calculateRecommendationScore(p2), calculateRecommendationScore(p1)))
+                .map(post -> convertToPostListResponse(post, persistentUser))
+                .collect(Collectors.toList());
+        } else {
+            return posts.stream()
+                .sorted((p1, p2) -> p2.getCreatedAt().compareTo(p1.getCreatedAt()))
+                .map(post -> convertToPostListResponse(post, persistentUser))
+                .collect(Collectors.toList());
+        }
+    }
+
+    private double calculateRecommendationScore(Post post) {
+        long likes = postLikeRepository.countByPost(post);
+        long comments = commentRepository.countByPost(post);
+        double weightScore = (likes * 3.0) + (comments * 5.0) + 1.0;
+        long hoursSince = ChronoUnit.HOURS.between(post.getCreatedAt(), LocalDateTime.now());
+        return weightScore / Math.pow(hoursSince + 2.0, 1.8);
+    }
+
+    public List<PostListResponse> getPopularPosts(User user, PostCategory category) {
+        User persistentUser = user != null ? userRepository.findById(user.getId()).orElse(null) : null;
+        LocalDateTime twentyFourHoursAgo = LocalDateTime.now().minusHours(24);
+        
+        List<Post> posts;
+        if (category == null) {
+            posts = postRepository.findPopularPostsSince(twentyFourHoursAgo);
+        } else {
+            posts = postRepository.findPopularPostsByCategorySince(category, twentyFourHoursAgo);
+        }
+
+        return posts.stream()
+            .limit(5)
+            .map(post -> convertToPostListResponse(post, persistentUser))
+            .collect(Collectors.toList());
+    }
+
+    public List<PostListResponse> searchPosts(User user, String keyword, PostCategory category) {
+        User persistentUser = user != null ? userRepository.findById(user.getId()).orElse(null) : null;
+        
+        List<Post> posts;
+        if (category == null) {
+            posts = postRepository.findByTitleContainingOrContentContainingOrderByCreatedAtDesc(keyword, keyword);
+        } else {
+            posts = postRepository.findByCategoryAndTitleContainingOrCategoryAndContentContainingOrderByCreatedAtDesc(category, keyword, category, keyword);
         }
 
         return posts.stream()
@@ -65,18 +123,6 @@ public class PostService {
             .collect(Collectors.toList());
     }
 
-    // [실시간 인기글] 최근 24시간 내 게시글 중 좋아요 순 (최대 5개)
-    public List<PostListResponse> getPopularPosts(User user) {
-        User persistentUser = user != null ? userRepository.findById(user.getId()).orElse(null) : null;
-        LocalDateTime twentyFourHoursAgo = LocalDateTime.now().minusHours(24);
-        
-        return postRepository.findPopularPostsSince(twentyFourHoursAgo).stream()
-            .limit(5)
-            .map(post -> convertToPostListResponse(post, persistentUser))
-            .collect(Collectors.toList());
-    }
-
-    // [상세 조회] 모든 정보와 댓글 목록 포함
     public PostResponse getPostDetail(Long postId, User user) {
         User persistentUser = user != null ? userRepository.findById(user.getId()).orElse(null) : null;
         Post post = postRepository.findById(postId)
@@ -106,6 +152,7 @@ public class PostService {
         return postLikeRepository.findByPostAndUser(post, persistentUser)
             .map(like -> {
                 postLikeRepository.delete(like);
+                postLikeRepository.flush(); // 즉각 반영
                 return false;
             })
             .orElseGet(() -> {
@@ -114,13 +161,11 @@ public class PostService {
             });
     }
 
-    // 목록용 변환 (본문 100자 제한 + 댓글 리스트 제외)
     private PostListResponse convertToPostListResponse(Post post, User user) {
         long commentCount = commentRepository.countByPost(post);
         boolean isLiked = user != null && postLikeRepository.existsByPostAndUser(post, user);
         long likeCount = postLikeRepository.countByPost(post);
 
-        // 본문 100자 제한 로직
         String summaryContent = post.getContent();
         if (summaryContent != null && summaryContent.length() > 100) {
             summaryContent = summaryContent.substring(0, 100) + "... 더보기";
@@ -128,11 +173,12 @@ public class PostService {
 
         return PostListResponse.builder()
             .id(post.getId())
+            .category(post.getCategory())
             .title(post.getTitle())
             .content(summaryContent)
             .authorNickname(post.getUser().getNickname())
-            .authorProfileImage(post.getUser().getProfileImage())
-            .analysisImageUrl(post.getAnalysis() != null ? post.getAnalysis().getImageUrl() : null)
+            .authorProfileImage(s3Service.getPresignedUrl(post.getUser().getProfileImage()))
+            .analysisImageUrl(post.getAnalysis() != null ? s3Service.getPresignedUrl(post.getAnalysis().getImageUrl()) : null)
             .analysisName(post.getAnalysis() != null ? post.getAnalysis().getName() : null)
             .likeCount(likeCount)
             .commentCount(commentCount)
@@ -141,14 +187,13 @@ public class PostService {
             .build();
     }
 
-    // 상세용 변환 (본문 전체 + 댓글 리스트 포함)
     private PostResponse convertToPostResponse(Post post, User user) {
         List<CommentResponse> comments = commentRepository.findAllByPost(post).stream()
             .map(comment -> CommentResponse.builder()
                 .id(comment.getId())
                 .content(comment.getContent())
                 .authorNickname(comment.getUser().getNickname())
-                .authorProfileImage(comment.getUser().getProfileImage())
+                .authorProfileImage(s3Service.getPresignedUrl(comment.getUser().getProfileImage()))
                 .createdAt(comment.getCreatedAt())
                 .build())
             .collect(Collectors.toList());
@@ -158,11 +203,12 @@ public class PostService {
 
         return PostResponse.builder()
             .id(post.getId())
+            .category(post.getCategory())
             .title(post.getTitle())
             .content(post.getContent())
             .authorNickname(post.getUser().getNickname())
-            .authorProfileImage(post.getUser().getProfileImage())
-            .analysisImageUrl(post.getAnalysis() != null ? post.getAnalysis().getImageUrl() : null)
+            .authorProfileImage(s3Service.getPresignedUrl(post.getUser().getProfileImage()))
+            .analysisImageUrl(post.getAnalysis() != null ? s3Service.getPresignedUrl(post.getAnalysis().getImageUrl()) : null)
             .analysisName(post.getAnalysis() != null ? post.getAnalysis().getName() : null)
             .likeCount(likeCount)
             .commentCount(comments.size())
