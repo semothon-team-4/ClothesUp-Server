@@ -1,5 +1,6 @@
 package semothon.team4.clothesup.shop.service;
 
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
@@ -11,6 +12,7 @@ import semothon.team4.clothesup.global.exception.CoreException;
 import semothon.team4.clothesup.global.exception.code.ReceiptErrorCode;
 import semothon.team4.clothesup.global.exception.code.ReviewErrorCode;
 import semothon.team4.clothesup.global.exception.code.ShopErrorCode;
+import semothon.team4.clothesup.global.s3.S3Uploader;
 import semothon.team4.clothesup.shop.domain.Receipt;
 import semothon.team4.clothesup.shop.domain.Review;
 import semothon.team4.clothesup.shop.domain.ReviewImage;
@@ -28,16 +30,24 @@ import semothon.team4.clothesup.user.domain.User;
 @Transactional(readOnly = true)
 public class ReviewService {
 
+    private static final Duration PRESIGNED_URL_EXPIRATION = Duration.ofHours(1);
+
     private final ReviewRepository reviewRepository;
     private final ReviewImageRepository reviewImageRepository;
     private final ShopRepository shopRepository;
     private final ReceiptRepository receiptRepository;
+    private final S3Uploader s3Uploader;
 
     public List<ReviewResponse> getReviews(Long shopId) {
         Shop shop = shopRepository.findById(shopId)
             .orElseThrow(() -> new CoreException(ShopErrorCode.SHOP_NOT_FOUND));
         return reviewRepository.findByShop(shop).stream()
-            .map(review -> ReviewResponse.from(review, reviewImageRepository.findByReview(review)))
+            .map(review -> {
+                List<String> presignedUrls = reviewImageRepository.findByReview(review).stream()
+                    .map(img -> s3Uploader.generatePresignedUrl(img.getImageUrl(), PRESIGNED_URL_EXPIRATION))
+                    .toList();
+                return ReviewResponse.from(review, presignedUrls);
+            })
             .toList();
     }
 
@@ -60,21 +70,27 @@ public class ReviewService {
             .createdAt(LocalDateTime.now())
             .build());
 
-        // TODO: 실제 파일 스토리지(S3 등) 연동 시 imageUrl 생성 로직을 교체하세요
+        List<MultipartFile> validImages = (images == null) ? List.of()
+            : images.stream().filter(f -> f != null && !f.isEmpty()).toList();
+
         List<ReviewImage> savedImages = Collections.emptyList();
-        if (images != null && !images.isEmpty()) {
+        if (!validImages.isEmpty()) {
             savedImages = reviewImageRepository.saveAll(
-                images.stream()
+                validImages.stream()
                     .map(image -> ReviewImage.builder()
                         .review(review)
-                        .imageUrl(image.getOriginalFilename())
+                        .imageUrl(s3Uploader.upload(image, "reviews"))
                         .createdAt(LocalDateTime.now())
                         .build())
                     .toList()
             );
         }
 
-        return ReviewWriteResponse.from(review, savedImages);
+        List<String> presignedUrls = savedImages.stream()
+            .map(img -> s3Uploader.generatePresignedUrl(img.getImageUrl(), PRESIGNED_URL_EXPIRATION))
+            .toList();
+
+        return ReviewWriteResponse.from(review, presignedUrls);
     }
 
     @Transactional
@@ -86,7 +102,9 @@ public class ReviewService {
             throw new CoreException(ReviewErrorCode.REVIEW_ACCESS_DENIED);
         }
 
-        reviewImageRepository.deleteAll(reviewImageRepository.findByReview(review));
+        List<ReviewImage> reviewImages = reviewImageRepository.findByReview(review);
+        reviewImages.forEach(img -> s3Uploader.delete(img.getImageUrl()));
+        reviewImageRepository.deleteAll(reviewImages);
         reviewRepository.delete(review);
     }
 }

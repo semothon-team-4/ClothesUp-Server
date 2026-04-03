@@ -5,8 +5,6 @@ import java.util.List;
 import lombok.Builder;
 import lombok.Getter;
 import semothon.team4.clothesup.shop.domain.Review;
-import semothon.team4.clothesup.shop.domain.ReviewImage;
-
 @Getter
 @Builder
 public class ReviewWriteResponse {
@@ -18,14 +16,14 @@ public class ReviewWriteResponse {
     private List<String> images;
     private LocalDateTime createdAt;
 
-    public static ReviewWriteResponse from(Review review, List<ReviewImage> images) {
+    public static ReviewWriteResponse from(Review review, List<String> presignedUrls) {
         return ReviewWriteResponse.builder()
             .id(review.getId())
             .shopId(review.getShop().getId())
             .receiptId(review.getReceipt() != null ? review.getReceipt().getId() : null)
             .rating(review.getRating())
             .content(review.getContent())
-            .images(images.stream().map(ReviewImage::getImageUrl).toList())
+            .images(presignedUrls)
             .createdAt(review.getCreatedAt())
             .build();
     }
