@@ -1,6 +1,7 @@
 package semothon.team4.clothesup.user.dto.profiledto;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -16,5 +17,6 @@ public class ReviewResponse {
     private String shopName;
     private int rating;
     private String content;
+    private List<String> imageUrls;
     private LocalDateTime createdAt;
 }
