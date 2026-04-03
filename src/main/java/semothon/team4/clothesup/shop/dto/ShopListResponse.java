@@ -24,7 +24,7 @@ public class ShopListResponse {
     private Long reviewCount;
     private Integer distance; // 미터 단위
 
-    public static ShopListResponse from(Shop shop, double userLat, double userLng) {
+    public static ShopListResponse from(Shop shop, double userLat, double userLng, String imageUrl) {
         Boolean isOpen = null;
         if (shop.getOpenTime() != null && shop.getCloseTime() != null) {
             LocalTime now = LocalTime.now();
@@ -45,7 +45,7 @@ public class ShopListResponse {
             .address(shop.getAddress())
             .lat(shop.getLat())
             .lng(shop.getLng())
-            .imageUrl(shop.getImageUrl())
+            .imageUrl(imageUrl)
             .category(shop.getCategory())
             .openTime(shop.getOpenTime())
             .closeTime(shop.getCloseTime())

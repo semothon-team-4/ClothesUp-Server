@@ -13,11 +13,11 @@ public class ReceiptDetailResponse {
     private String imageUrl;
     private LocalDateTime createdAt;
 
-    public static ReceiptDetailResponse from(Receipt receipt) {
+    public static ReceiptDetailResponse from(Receipt receipt, String imageUrl) {
         return ReceiptDetailResponse.builder()
             .id(receipt.getId())
             .shopId(receipt.getShop().getId())
-            .imageUrl(receipt.getImageUrl())
+            .imageUrl(imageUrl)
             .createdAt(receipt.getCreatedAt())
             .build();
     }

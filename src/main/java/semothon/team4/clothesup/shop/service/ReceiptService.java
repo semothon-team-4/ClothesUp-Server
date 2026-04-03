@@ -1,5 +1,6 @@
 package semothon.team4.clothesup.shop.service;
 
+import java.time.Duration;
 import java.time.LocalDateTime;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -8,6 +9,7 @@ import org.springframework.web.multipart.MultipartFile;
 import semothon.team4.clothesup.global.exception.CoreException;
 import semothon.team4.clothesup.global.exception.code.ReceiptErrorCode;
 import semothon.team4.clothesup.global.exception.code.ShopErrorCode;
+import semothon.team4.clothesup.global.s3.S3Uploader;
 import semothon.team4.clothesup.shop.domain.Receipt;
 import semothon.team4.clothesup.shop.domain.Shop;
 import semothon.team4.clothesup.shop.dto.ReceiptDetailResponse;
@@ -21,25 +23,28 @@ import semothon.team4.clothesup.user.domain.User;
 @Transactional(readOnly = true)
 public class ReceiptService {
 
+    private static final Duration PRESIGNED_URL_EXPIRATION = Duration.ofHours(1);
+
     private final ReceiptRepository receiptRepository;
     private final ShopRepository shopRepository;
+    private final S3Uploader s3Uploader;
 
     @Transactional
     public ReceiptUploadResponse uploadReceipt(User user, Long shopId, MultipartFile image) {
         Shop shop = shopRepository.findById(shopId)
             .orElseThrow(() -> new CoreException(ShopErrorCode.SHOP_NOT_FOUND));
 
-        // TODO: 실제 파일 스토리지(S3 등) 연동 시 아래 imageUrl을 교체하세요
-        String imageUrl = image.getOriginalFilename();
+        String key = s3Uploader.upload(image, "receipts");
 
-        Receipt receipt = Receipt.builder()
+        Receipt receipt = receiptRepository.save(Receipt.builder()
             .user(user)
             .shop(shop)
-            .imageUrl(imageUrl)
+            .imageUrl(key)
             .createdAt(LocalDateTime.now())
-            .build();
+            .build());
 
-        return ReceiptUploadResponse.from(receiptRepository.save(receipt));
+        String presignedUrl = s3Uploader.generatePresignedUrl(key, PRESIGNED_URL_EXPIRATION);
+        return ReceiptUploadResponse.from(receipt, presignedUrl);
     }
 
     public ReceiptDetailResponse getReceipt(User user, Long receiptId) {
@@ -50,6 +55,7 @@ public class ReceiptService {
             throw new CoreException(ReceiptErrorCode.RECEIPT_ACCESS_DENIED);
         }
 
-        return ReceiptDetailResponse.from(receipt);
+        String presignedUrl = s3Uploader.generatePresignedUrl(receipt.getImageUrl(), PRESIGNED_URL_EXPIRATION);
+        return ReceiptDetailResponse.from(receipt, presignedUrl);
     }
 }

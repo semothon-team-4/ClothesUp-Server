@@ -17,12 +17,12 @@ public class ReviewResponse {
     private List<String> images;
     private LocalDateTime createdAt;
 
-    public static ReviewResponse from(Review review, List<String> presignedUrls) {
+    public static ReviewResponse from(Review review, List<String> presignedUrls, String profileImageUrl) {
         return ReviewResponse.builder()
             .id(review.getId())
             .userId(review.getUser().getId())
             .nickname(review.getUser().getNickname())
-            .profileImage(review.getUser().getProfileImage())
+            .profileImage(profileImageUrl)
             .rating(review.getRating())
             .content(review.getContent())
             .images(presignedUrls)
