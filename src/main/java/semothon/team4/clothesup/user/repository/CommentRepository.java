@@ -7,4 +7,5 @@ import semothon.team4.clothesup.user.domain.Post;
 
 public interface CommentRepository extends JpaRepository<Comment, Long> {
     List<Comment> findAllByPost(Post post);
+    long countByPost(Post post); // 댓글 수 조회 추가
 }

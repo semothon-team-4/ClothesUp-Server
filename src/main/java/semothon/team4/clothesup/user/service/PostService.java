@@ -12,10 +12,7 @@ import semothon.team4.clothesup.global.exception.code.CommonErrorCode;
 import semothon.team4.clothesup.user.domain.Comment;
 import semothon.team4.clothesup.user.domain.Post;
 import semothon.team4.clothesup.user.domain.PostLike;
-import semothon.team4.clothesup.user.dto.postdto.CommentRequest;
-import semothon.team4.clothesup.user.dto.postdto.CommentResponse;
-import semothon.team4.clothesup.user.dto.postdto.PostCreateRequest;
-import semothon.team4.clothesup.user.dto.postdto.PostResponse;
+import semothon.team4.clothesup.user.dto.postdto.*;
 import semothon.team4.clothesup.user.repository.CommentRepository;
 import semothon.team4.clothesup.user.repository.PostLikeRepository;
 import semothon.team4.clothesup.user.repository.PostRepository;
@@ -51,8 +48,8 @@ public class PostService {
         return postRepository.save(post).getId();
     }
 
-    // 정렬 기반 피드 조회 (최신순, 인기순)
-    public List<PostResponse> getPosts(User user, String sort) {
+    // [목록 조회] 댓글 목록을 제외하고 개수만 포함
+    public List<PostListResponse> getPosts(User user, String sort) {
         User persistentUser = user != null ? userRepository.findById(user.getId()).orElse(null) : null;
         
         List<Post> posts;
@@ -63,19 +60,20 @@ public class PostService {
         }
 
         return posts.stream()
-            .map(post -> convertToPostResponse(post, persistentUser))
+            .map(post -> convertToPostListResponse(post, persistentUser))
             .collect(Collectors.toList());
     }
 
-    // 실시간 인기글 (상단 슬라이드용 - 상위 5개만)
-    public List<PostResponse> getPopularPosts(User user) {
+    // [실시간 인기글] 상단 슬라이드용 (댓글 목록 제외)
+    public List<PostListResponse> getPopularPosts(User user) {
         User persistentUser = user != null ? userRepository.findById(user.getId()).orElse(null) : null;
         return postRepository.findAllOrderByLikesDesc().stream()
             .limit(5)
-            .map(post -> convertToPostResponse(post, persistentUser))
+            .map(post -> convertToPostListResponse(post, persistentUser))
             .collect(Collectors.toList());
     }
 
+    // [상세 조회] 모든 정보와 댓글 목록 포함 (본문 전체 노출)
     public PostResponse getPostDetail(Long postId, User user) {
         User persistentUser = user != null ? userRepository.findById(user.getId()).orElse(null) : null;
         Post post = postRepository.findById(postId)
@@ -113,6 +111,34 @@ public class PostService {
             });
     }
 
+    // 목록용 변환 (본문 100자 제한 + 댓글 리스트 제외)
+    private PostListResponse convertToPostListResponse(Post post, User user) {
+        long commentCount = commentRepository.countByPost(post);
+        boolean isLiked = user != null && postLikeRepository.existsByPostAndUser(post, user);
+        long likeCount = postLikeRepository.countByPost(post);
+
+        // 본문 100자 제한 로직
+        String summaryContent = post.getContent();
+        if (summaryContent != null && summaryContent.length() > 100) {
+            summaryContent = summaryContent.substring(0, 100) + "... 더보기";
+        }
+
+        return PostListResponse.builder()
+            .id(post.getId())
+            .title(post.getTitle())
+            .content(summaryContent) // 요약된 내용 전달
+            .authorNickname(post.getUser().getNickname())
+            .authorProfileImage(post.getUser().getProfileImage())
+            .analysisImageUrl(post.getAnalysis() != null ? post.getAnalysis().getImageUrl() : null)
+            .analysisName(post.getAnalysis() != null ? post.getAnalysis().getName() : null)
+            .likeCount(likeCount)
+            .commentCount(commentCount)
+            .isLiked(isLiked)
+            .createdAt(post.getCreatedAt())
+            .build();
+    }
+
+    // 상세용 변환 (본문 전체 + 댓글 리스트 포함)
     private PostResponse convertToPostResponse(Post post, User user) {
         List<CommentResponse> comments = commentRepository.findAllByPost(post).stream()
             .map(comment -> CommentResponse.builder()
@@ -130,13 +156,13 @@ public class PostService {
         return PostResponse.builder()
             .id(post.getId())
             .title(post.getTitle())
-            .content(post.getContent())
+            .content(post.getContent()) // 전체 내용 전달
             .authorNickname(post.getUser().getNickname())
             .authorProfileImage(post.getUser().getProfileImage())
             .analysisImageUrl(post.getAnalysis() != null ? post.getAnalysis().getImageUrl() : null)
             .analysisName(post.getAnalysis() != null ? post.getAnalysis().getName() : null)
             .likeCount(likeCount)
-            .commentCount(comments.size()) // 댓글 수 추가
+            .commentCount(comments.size())
             .isLiked(isLiked)
             .comments(comments)
             .createdAt(post.getCreatedAt())
