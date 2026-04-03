@@ -22,6 +22,7 @@ public class PostResponse {
     private String authorProfileImage;
     private String analysisImageUrl;
     private String analysisName;
+    private String postImageUrl;
     private long likeCount;
     private long commentCount; // 추가: 댓글 수
     private boolean isLiked;
