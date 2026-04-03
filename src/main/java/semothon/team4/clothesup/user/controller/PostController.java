@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import semothon.team4.clothesup.global.common.BaseResponse;
 import semothon.team4.clothesup.global.security.CustomUserDetails;
+import semothon.team4.clothesup.user.domain.PostCategory;
 import semothon.team4.clothesup.user.dto.postdto.CommentRequest;
 import semothon.team4.clothesup.user.dto.postdto.PostCreateRequest;
 import semothon.team4.clothesup.user.dto.postdto.PostListResponse;
@@ -49,11 +50,11 @@ public class PostController {
         return BaseResponse.created("게시글 작성 성공", postId);
     }
 
-    @Operation(summary = "게시글 목록 조회", description = "커뮤니티의 게시글을 정렬 및 카테고리별로 조회합니다. sort: RECOMMENDED, LATEST, POPULAR")
+    @Operation(summary = "게시글 목록 조회", description = "커뮤니티의 게시글을 정렬 및 카테고리별로 조회합니다. (sort: RECOMMENDED, LATEST, POPULAR)")
     @GetMapping
     public ResponseEntity<BaseResponse<List<PostListResponse>>> getPosts(
         @RequestParam(defaultValue = "RECOMMENDED") String sort,
-        @RequestParam(required = false) semothon.team4.clothesup.user.domain.PostCategory category,
+        @RequestParam(required = false) PostCategory category,
         @AuthenticationPrincipal CustomUserDetails userDetails
     ) {
         List<PostListResponse> responses = postService.getPosts(userDetails != null ? userDetails.getUser() : null, sort, category);
@@ -61,21 +62,21 @@ public class PostController {
         return BaseResponse.ok("게시글 목록 조회 성공 (" + categoryName + " / " + sort + ")", responses);
     }
 
-    @Operation(summary = "실시간 인기글 조회", description = "상단 슬라이드용 실시간 인기글을 카테고리별로 조회합니다.")
+    @Operation(summary = "실시간 인기글 조회", description = "상단 슬라이드용 실시간 인기글을 카테고리별로 조회합니다. category가 없으면 '전체' 조회입니다.")
     @GetMapping("/popular")
     public ResponseEntity<BaseResponse<List<PostListResponse>>> getPopularPosts(
-        @RequestParam(required = false) semothon.team4.clothesup.user.domain.PostCategory category,
+        @RequestParam(required = false) PostCategory category,
         @AuthenticationPrincipal CustomUserDetails userDetails
     ) {
         List<PostListResponse> responses = postService.getPopularPosts(userDetails != null ? userDetails.getUser() : null, category);
         return BaseResponse.ok("실시간 인기글 조회 성공", responses);
     }
 
-    @Operation(summary = "게시글 검색", description = "키워드로 게시글을 검색합니다. 제목이나 내용에 키워드가 포함된 글을 반환합니다.")
+    @Operation(summary = "게시글 검색", description = "키워드로 게시글을 검색합니다. 제목이나 내용에 키워드가 포함된 글을 최신순으로 반환합니다.")
     @GetMapping("/search")
     public ResponseEntity<BaseResponse<List<PostListResponse>>> searchPosts(
         @RequestParam String keyword,
-        @RequestParam(required = false) semothon.team4.clothesup.user.domain.PostCategory category,
+        @RequestParam(required = false) PostCategory category,
         @AuthenticationPrincipal CustomUserDetails userDetails
     ) {
         List<PostListResponse> responses = postService.searchPosts(userDetails != null ? userDetails.getUser() : null, keyword, category);

@@ -66,16 +66,19 @@ public class PostService {
 
         // 정렬 처리
         if ("POPULAR".equalsIgnoreCase(sort)) {
+            // 인기순 (단순 좋아요 순)
             return posts.stream()
                 .sorted((p1, p2) -> Long.compare(postLikeRepository.countByPost(p2), postLikeRepository.countByPost(p1)))
                 .map(post -> convertToPostListResponse(post, persistentUser))
                 .collect(Collectors.toList());
         } else if ("RECOMMENDED".equalsIgnoreCase(sort)) {
+            // 추천순 (가중치 + 시간 감쇄 알고리즘)
             return posts.stream()
                 .sorted((p1, p2) -> Double.compare(calculateRecommendationScore(p2), calculateRecommendationScore(p1)))
                 .map(post -> convertToPostListResponse(post, persistentUser))
                 .collect(Collectors.toList());
         } else {
+            // 최신순 (기본값)
             return posts.stream()
                 .sorted((p1, p2) -> p2.getCreatedAt().compareTo(p1.getCreatedAt()))
                 .map(post -> convertToPostListResponse(post, persistentUser))
@@ -83,14 +86,22 @@ public class PostService {
         }
     }
 
+    // 추천 점수 계산 (Time Decay 알고리즘)
     private double calculateRecommendationScore(Post post) {
         long likes = postLikeRepository.countByPost(post);
         long comments = commentRepository.countByPost(post);
+        
+        // (좋아요*3 + 댓글*5 + 기본점수1)
         double weightScore = (likes * 3.0) + (comments * 5.0) + 1.0;
+        
+        // 작성 후 경과 시간(시간 단위)
         long hoursSince = ChronoUnit.HOURS.between(post.getCreatedAt(), LocalDateTime.now());
+        
+        // 점수 = 가중치 점수 / (경과시간 + 2)^1.8
         return weightScore / Math.pow(hoursSince + 2.0, 1.8);
     }
 
+    // [실시간 인기글] 최근 24시간 내 게시글 중 좋아요 순 (최대 5개)
     public List<PostListResponse> getPopularPosts(User user, PostCategory category) {
         User persistentUser = user != null ? userRepository.findById(user.getId()).orElse(null) : null;
         LocalDateTime twentyFourHoursAgo = LocalDateTime.now().minusHours(24);
@@ -108,6 +119,7 @@ public class PostService {
             .collect(Collectors.toList());
     }
 
+    // [검색 기능] 키워드로 게시글 검색
     public List<PostListResponse> searchPosts(User user, String keyword, PostCategory category) {
         User persistentUser = user != null ? userRepository.findById(user.getId()).orElse(null) : null;
         
@@ -123,6 +135,7 @@ public class PostService {
             .collect(Collectors.toList());
     }
 
+    // [상세 조회] 모든 정보와 댓글 목록 포함
     public PostResponse getPostDetail(Long postId, User user) {
         User persistentUser = user != null ? userRepository.findById(user.getId()).orElse(null) : null;
         Post post = postRepository.findById(postId)
@@ -152,7 +165,6 @@ public class PostService {
         return postLikeRepository.findByPostAndUser(post, persistentUser)
             .map(like -> {
                 postLikeRepository.delete(like);
-                postLikeRepository.flush(); // 즉각 반영
                 return false;
             })
             .orElseGet(() -> {
@@ -161,11 +173,13 @@ public class PostService {
             });
     }
 
+    // 목록용 변환 (본문 100자 제한 + 댓글 리스트 제외)
     private PostListResponse convertToPostListResponse(Post post, User user) {
         long commentCount = commentRepository.countByPost(post);
         boolean isLiked = user != null && postLikeRepository.existsByPostAndUser(post, user);
         long likeCount = postLikeRepository.countByPost(post);
 
+        // 본문 100자 제한 로직
         String summaryContent = post.getContent();
         if (summaryContent != null && summaryContent.length() > 100) {
             summaryContent = summaryContent.substring(0, 100) + "... 더보기";
@@ -187,6 +201,7 @@ public class PostService {
             .build();
     }
 
+    // 상세용 변환 (본문 전체 + 댓글 리스트 포함)
     private PostResponse convertToPostResponse(Post post, User user) {
         List<CommentResponse> comments = commentRepository.findAllByPost(post).stream()
             .map(comment -> CommentResponse.builder()

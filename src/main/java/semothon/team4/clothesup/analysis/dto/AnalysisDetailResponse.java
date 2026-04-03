@@ -2,6 +2,7 @@ package semothon.team4.clothesup.analysis.dto;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.function.Function;
 import lombok.Builder;
 import lombok.Getter;
 import semothon.team4.clothesup.analysis.domain.Analysis;
@@ -35,14 +36,15 @@ public class AnalysisDetailResponse {
             private String imageUrl;
         }
 
-        public static CareLabelDto from(CareLabelAnalysis careLabelAnalysis, List<CareLabel> careLabels) {
+        public static CareLabelDto from(CareLabelAnalysis careLabelAnalysis, List<CareLabel> careLabels,
+            Function<String, String> presigner) {
             return CareLabelDto.builder()
                 .id(careLabelAnalysis.getId())
                 .labels(careLabels.stream()
                     .map(cl -> LabelItem.builder()
                         .id(cl.getCareLabelList().getId())
                         .name(cl.getCareLabelList().getName())
-                        .imageUrl(cl.getCareLabelList().getImageUrl())
+                        .imageUrl(presigner.apply(cl.getCareLabelList().getImageUrl()))
                         .build())
                     .toList())
                 .build();
@@ -57,6 +59,7 @@ public class AnalysisDetailResponse {
         private int stainLevel;
         private int damageLevel;
         private String recommendation;
+        private String storageTip;
 
         public static ConditionDto from(ConditionAnalysis conditionAnalysis) {
             return ConditionDto.builder()
@@ -65,16 +68,17 @@ public class AnalysisDetailResponse {
                 .stainLevel(conditionAnalysis.getStainLevel())
                 .damageLevel(conditionAnalysis.getDamageLevel())
                 .recommendation(conditionAnalysis.getRecommendation())
+                .storageTip(conditionAnalysis.getStorageTip())
                 .build();
         }
     }
 
-    public static AnalysisDetailResponse fromCondition(Analysis analysis, ConditionAnalysis conditionAnalysis) {
+    public static AnalysisDetailResponse fromCondition(Analysis analysis, ConditionAnalysis conditionAnalysis, String imageUrl) {
         return AnalysisDetailResponse.builder()
             .id(analysis.getId())
             .name(analysis.getName())
             .category(analysis.getCategory())
-            .imageUrl(analysis.getImageUrl())
+            .imageUrl(imageUrl)
             .condition(ConditionDto.from(conditionAnalysis))
             .careLabel(null)
             .createdAt(analysis.getCreatedAt())
@@ -82,13 +86,14 @@ public class AnalysisDetailResponse {
     }
 
     public static AnalysisDetailResponse fromCareLabel(Analysis analysis,
-        CareLabelAnalysis careLabelAnalysis, List<CareLabel> careLabels) {
+        CareLabelAnalysis careLabelAnalysis, List<CareLabel> careLabels, String imageUrl,
+        Function<String, String> presigner) {
         return AnalysisDetailResponse.builder()
             .id(analysis.getId())
             .name(analysis.getName())
             .category(analysis.getCategory())
-            .imageUrl(analysis.getImageUrl())
-            .careLabel(CareLabelDto.from(careLabelAnalysis, careLabels))
+            .imageUrl(imageUrl)
+            .careLabel(CareLabelDto.from(careLabelAnalysis, careLabels, presigner))
             .condition(null)
             .createdAt(analysis.getCreatedAt())
             .build();

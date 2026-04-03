@@ -1,21 +1,44 @@
 package semothon.team4.clothesup.global.common;
 
+import java.time.Duration;
+import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import software.amazon.awssdk.services.s3.model.GetObjectRequest;
+import software.amazon.awssdk.services.s3.presigner.S3Presigner;
+import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
+import software.amazon.awssdk.services.s3.presigner.model.PresignedGetObjectRequest;
 
 @Service
+@RequiredArgsConstructor
 public class S3Service {
 
-    /**
-     * S3 객체의 Pre-signed URL을 생성합니다.
-     * 현재는 실제 S3 연동 전이므로, 전달받은 경로를 그대로 반환하거나
-     * 로컬 테스트를 위한 URL 형식을 반환합니다.
-     */
-    public String getPresignedUrl(String path) {
-        if (path == null || path.isEmpty()) {
+    private final S3Presigner s3Presigner;
+
+    @Value("${cloud.aws.s3.bucket}")
+    private String bucket;
+
+    public String getPresignedUrl(String fileName) {
+        if (fileName == null || fileName.isEmpty()) {
             return null;
         }
-        // TODO: 실제 S3 연동 시 AWS SDK를 사용하여 Pre-signed URL 생성 로직을 구현하세요.
-        // 임시로 path를 그대로 반환하거나 prefix를 붙여 반환할 수 있습니다.
-        return path;
+
+        // 이미 HTTP로 시작하는 전체 URL인 경우 그대로 반환 (이미 Presigned이거나 외부 URL인 경우)
+        if (fileName.startsWith("http")) {
+            return fileName;
+        }
+
+        GetObjectRequest getObjectRequest = GetObjectRequest.builder()
+                .bucket(bucket)
+                .key(fileName)
+                .build();
+
+        GetObjectPresignRequest getObjectPresignRequest = GetObjectPresignRequest.builder()
+                .signatureDuration(Duration.ofMinutes(60)) // 60분간 유효
+                .getObjectRequest(getObjectRequest)
+                .build();
+
+        PresignedGetObjectRequest presignedGetObjectRequest = s3Presigner.presignGetObject(getObjectPresignRequest);
+        return presignedGetObjectRequest.url().toString();
     }
 }

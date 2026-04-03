@@ -105,7 +105,7 @@ public class ProfileService {
                     .rating(review.getRating())
                     .content(review.getContent())
                     .imageUrls(imageUrls)
-                    .isVerified(review.getReceipt() != null)
+                    .isVerified(review.getReceipt() != null) // 영수증이 존재하면 인증됨
                     .createdAt(review.getCreatedAt())
                     .build();
             })
@@ -123,7 +123,6 @@ public class ProfileService {
         return savedShopRepository.findByUserAndShop(persistentUser, shop)
             .map(savedShop -> {
                 savedShopRepository.delete(savedShop);
-                savedShopRepository.flush(); // 즉각 반영
                 shop.updateLikeCount(-1); // 좋아요 수 감소
                 return false;
             })
@@ -146,6 +145,7 @@ public class ProfileService {
 
         return PostListResponse.builder()
             .id(post.getId())
+            .category(post.getCategory())
             .title(post.getTitle())
             .content(summaryContent)
             .authorNickname(post.getUser().getNickname())

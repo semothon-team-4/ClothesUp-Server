@@ -15,6 +15,7 @@ public class PostListResponse {
     private Long id;
     private PostCategory category;
     private String title;
+
     private String content;
     private String authorNickname;
     private String authorProfileImage;

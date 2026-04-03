@@ -18,6 +18,6 @@ public class ReviewResponse {
     private int rating;
     private String content;
     private List<String> imageUrls;
-    private boolean isVerified;
+    private boolean isVerified; // 영수증 인증 여부
     private LocalDateTime createdAt;
 }

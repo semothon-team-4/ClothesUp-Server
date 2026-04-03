@@ -1,5 +1,6 @@
 package semothon.team4.clothesup.analysis.service;
 
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
@@ -11,16 +12,21 @@ import org.springframework.web.multipart.MultipartFile;
 import semothon.team4.clothesup.analysis.domain.Analysis;
 import semothon.team4.clothesup.analysis.domain.CareLabel;
 import semothon.team4.clothesup.analysis.domain.CareLabelAnalysis;
+import semothon.team4.clothesup.analysis.domain.CareLabelList;
 import semothon.team4.clothesup.analysis.domain.ConditionAnalysis;
 import semothon.team4.clothesup.analysis.dto.AnalysisClosetResponse;
 import semothon.team4.clothesup.analysis.dto.AnalysisDetailResponse;
 import semothon.team4.clothesup.analysis.dto.AnalysisListItemResponse;
+import semothon.team4.clothesup.analysis.dto.CareLabelAnalysisRequest;
 import semothon.team4.clothesup.analysis.repository.AnalysisRepository;
 import semothon.team4.clothesup.analysis.repository.CareLabelAnalysisRepository;
+import semothon.team4.clothesup.analysis.repository.CareLabelListRepository;
 import semothon.team4.clothesup.analysis.repository.CareLabelRepository;
 import semothon.team4.clothesup.analysis.repository.ConditionAnalysisRepository;
+import java.util.function.Function;
 import semothon.team4.clothesup.global.exception.CoreException;
 import semothon.team4.clothesup.global.exception.code.AnalysisErrorCode;
+import semothon.team4.clothesup.global.s3.S3Uploader;
 import semothon.team4.clothesup.user.domain.User;
 
 @Service
@@ -28,21 +34,24 @@ import semothon.team4.clothesup.user.domain.User;
 @Transactional(readOnly = true)
 public class AnalysisService {
 
+    private static final Duration PRESIGNED_URL_EXPIRATION = Duration.ofHours(1);
+
     private final AnalysisRepository analysisRepository;
     private final ConditionAnalysisRepository conditionAnalysisRepository;
     private final CareLabelAnalysisRepository careLabelAnalysisRepository;
     private final CareLabelRepository careLabelRepository;
+    private final CareLabelListRepository careLabelListRepository;
+    private final S3Uploader s3Uploader;
 
     @Transactional
     public AnalysisDetailResponse requestAnalysis(User user, String name, String category, MultipartFile image) {
-        // TODO: 실제 파일 스토리지(S3 등) 연동 시 imageUrl 생성 로직을 교체하세요
-        String imageUrl = image.getOriginalFilename();
+        String key = s3Uploader.upload(image, "analyses");
 
         Analysis analysis = analysisRepository.save(Analysis.builder()
             .user(user)
             .name(name)
             .category(category)
-            .imageUrl(imageUrl)
+            .imageUrl(key)
             .createdAt(LocalDateTime.now())
             .build());
 
@@ -56,7 +65,80 @@ public class AnalysisService {
                 .recommendation("분석 결과 없음")
                 .build());
 
-        return AnalysisDetailResponse.fromCondition(analysis, conditionAnalysis);
+        String presignedUrl = s3Uploader.generatePresignedUrl(key, PRESIGNED_URL_EXPIRATION);
+        return AnalysisDetailResponse.fromCondition(analysis, conditionAnalysis, presignedUrl);
+    }
+
+    @Transactional
+    public AnalysisDetailResponse requestConditionAnalysis(
+        User user, String name, String category, MultipartFile image,
+        String grade, int stainLevel, int damageLevel, String recommendation, String storageTip
+    ) {
+        String key = s3Uploader.upload(image, "analyses");
+
+        Analysis analysis = analysisRepository.save(Analysis.builder()
+            .user(user)
+            .name(name)
+            .category(category)
+            .imageUrl(key)
+            .createdAt(LocalDateTime.now())
+            .build());
+
+        ConditionAnalysis conditionAnalysis = conditionAnalysisRepository.save(
+            ConditionAnalysis.builder()
+                .analysis(analysis)
+                .grade(ConditionAnalysis.Grade.valueOf(grade.toUpperCase()))
+                .stainLevel(stainLevel)
+                .damageLevel(damageLevel)
+                .recommendation(recommendation)
+                .storageTip(storageTip)
+                .build());
+
+        String presignedUrl = s3Uploader.generatePresignedUrl(key, PRESIGNED_URL_EXPIRATION);
+        return AnalysisDetailResponse.fromCondition(analysis, conditionAnalysis, presignedUrl);
+    }
+
+    @Transactional
+    public AnalysisDetailResponse requestCareLabelAnalysis(User user, CareLabelAnalysisRequest request, MultipartFile image) {
+        String key = s3Uploader.upload(image, "analyses");
+
+        Analysis analysis = analysisRepository.save(Analysis.builder()
+            .user(user)
+            .name(request.getName())
+            .category(request.getCategory())
+            .imageUrl(key)
+            .createdAt(LocalDateTime.now())
+            .build());
+
+        CareLabelAnalysis careLabelAnalysis = careLabelAnalysisRepository.save(
+            CareLabelAnalysis.builder()
+                .analysis(analysis)
+                .build());
+
+        List<CareLabel> careLabels = request.getLabels().stream()
+            .map(label -> {
+                CareLabelList careLabelList = careLabelListRepository.findByName(label.getSymbol())
+                    .orElseGet(() -> {
+                        String imageKey = s3Uploader.uploadBase64(label.getImageBase64(), "care-labels");
+                        return careLabelListRepository.save(
+                            CareLabelList.builder()
+                                .name(label.getSymbol())
+                                .desc(label.getDesc())
+                                .imageUrl(imageKey)
+                                .build());
+                    });
+                return CareLabel.builder()
+                    .careLabelAnalysis(careLabelAnalysis)
+                    .careLabelList(careLabelList)
+                    .build();
+            })
+            .toList();
+
+        careLabelRepository.saveAll(careLabels);
+
+        String presignedUrl = s3Uploader.generatePresignedUrl(key, PRESIGNED_URL_EXPIRATION);
+        Function<String, String> presigner = k -> s3Uploader.generatePresignedUrl(k, PRESIGNED_URL_EXPIRATION);
+        return AnalysisDetailResponse.fromCareLabel(analysis, careLabelAnalysis, careLabels, presignedUrl, presigner);
     }
 
     public AnalysisClosetResponse getMyAnalyses(User user) {
@@ -90,7 +172,9 @@ public class AnalysisService {
                 List<CareLabel> labels = cla != null
                     ? careLabelsByCareLabelAnalysisId.getOrDefault(cla.getId(), List.of())
                     : List.of();
-                return AnalysisListItemResponse.from(a, gradeByAnalysisId.get(a.getId()), labels);
+                String presignedUrl = s3Uploader.generatePresignedUrl(a.getImageUrl(), PRESIGNED_URL_EXPIRATION);
+                return AnalysisListItemResponse.from(a, gradeByAnalysisId.get(a.getId()), labels, presignedUrl,
+                    key -> s3Uploader.generatePresignedUrl(key, PRESIGNED_URL_EXPIRATION));
             })
             .toList();
 
@@ -118,14 +202,17 @@ public class AnalysisService {
             throw new CoreException(AnalysisErrorCode.ANALYSIS_ACCESS_DENIED);
         }
 
-        // ConditionAnalysis 우선 확인, 없으면 CareLabelAnalysis 확인
+        String presignedUrl = s3Uploader.generatePresignedUrl(analysis.getImageUrl(), PRESIGNED_URL_EXPIRATION);
+
+        Function<String, String> presigner = key -> s3Uploader.generatePresignedUrl(key, PRESIGNED_URL_EXPIRATION);
+
         return conditionAnalysisRepository.findByAnalysis(analysis)
-            .map(condition -> AnalysisDetailResponse.fromCondition(analysis, condition))
+            .map(condition -> AnalysisDetailResponse.fromCondition(analysis, condition, presignedUrl))
             .orElseGet(() -> {
                 CareLabelAnalysis cla = careLabelAnalysisRepository.findByAnalysis(analysis)
                     .orElseThrow(() -> new CoreException(AnalysisErrorCode.ANALYSIS_NOT_FOUND));
                 List<CareLabel> labels = careLabelRepository.findByCareLabelAnalysis(cla);
-                return AnalysisDetailResponse.fromCareLabel(analysis, cla, labels);
+                return AnalysisDetailResponse.fromCareLabel(analysis, cla, labels, presignedUrl, presigner);
             });
     }
 
@@ -137,6 +224,8 @@ public class AnalysisService {
         if (!analysis.getUser().getId().equals(user.getId())) {
             throw new CoreException(AnalysisErrorCode.ANALYSIS_ACCESS_DENIED);
         }
+
+        s3Uploader.delete(analysis.getImageUrl());
 
         careLabelAnalysisRepository.findByAnalysis(analysis).ifPresent(cla -> {
             careLabelRepository.deleteAll(careLabelRepository.findByCareLabelAnalysis(cla));
