@@ -41,7 +41,7 @@ public class ReviewController {
     public ResponseEntity<BaseResponse<ReviewWriteResponse>> writeReview(
         @AuthenticationPrincipal CustomUserDetails userDetails,
         @PathVariable Long shopId,
-        @RequestParam Long receiptId,
+        @RequestParam(required = false) Long receiptId,
         @RequestParam int rating,
         @RequestParam String content,
         @RequestParam(required = false) List<MultipartFile> images

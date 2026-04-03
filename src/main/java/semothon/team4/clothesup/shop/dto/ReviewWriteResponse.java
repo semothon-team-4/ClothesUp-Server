@@ -22,7 +22,7 @@ public class ReviewWriteResponse {
         return ReviewWriteResponse.builder()
             .id(review.getId())
             .shopId(review.getShop().getId())
-            .receiptId(review.getReceipt().getId())
+            .receiptId(review.getReceipt() != null ? review.getReceipt().getId() : null)
             .rating(review.getRating())
             .content(review.getContent())
             .images(images.stream().map(ReviewImage::getImageUrl).toList())
