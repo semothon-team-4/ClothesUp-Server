@@ -19,6 +19,7 @@ import semothon.team4.clothesup.global.common.BaseResponse;
 import semothon.team4.clothesup.global.security.CustomUserDetails;
 import semothon.team4.clothesup.user.dto.postdto.CommentRequest;
 import semothon.team4.clothesup.user.dto.postdto.PostCreateRequest;
+import semothon.team4.clothesup.user.dto.postdto.PostListResponse;
 import semothon.team4.clothesup.user.dto.postdto.PostResponse;
 import semothon.team4.clothesup.user.service.PostService;
 
@@ -48,26 +49,26 @@ public class PostController {
         return BaseResponse.created("게시글 작성 성공", postId);
     }
 
-    @Operation(summary = "게시글 목록 조회", description = "커뮤니티의 게시글을 정렬하여 조회합니다. (LATEST, POPULAR)")
+    @Operation(summary = "게시글 목록 조회", description = "커뮤니티의 게시글을 정렬하여 조회합니다. (댓글 리스트 제외)")
     @GetMapping
-    public ResponseEntity<BaseResponse<List<PostResponse>>> getPosts(
+    public ResponseEntity<BaseResponse<List<PostListResponse>>> getPosts(
         @RequestParam(defaultValue = "LATEST") String sort,
         @AuthenticationPrincipal CustomUserDetails userDetails
     ) {
-        List<PostResponse> responses = postService.getPosts(userDetails != null ? userDetails.getUser() : null, sort);
+        List<PostListResponse> responses = postService.getPosts(userDetails != null ? userDetails.getUser() : null, sort);
         return BaseResponse.ok("게시글 목록 조회 성공 (" + sort + ")", responses);
     }
 
-    @Operation(summary = "실시간 인기글 조회", description = "상단 슬라이드용 실시간 인기글 상위 5개를 조회합니다.")
+    @Operation(summary = "실시간 인기글 조회", description = "상단 슬라이드용 실시간 인기글을 조회합니다. (댓글 리스트 제외)")
     @GetMapping("/popular")
-    public ResponseEntity<BaseResponse<List<PostResponse>>> getPopularPosts(
+    public ResponseEntity<BaseResponse<List<PostListResponse>>> getPopularPosts(
         @AuthenticationPrincipal CustomUserDetails userDetails
     ) {
-        List<PostResponse> responses = postService.getPopularPosts(userDetails != null ? userDetails.getUser() : null);
+        List<PostListResponse> responses = postService.getPopularPosts(userDetails != null ? userDetails.getUser() : null);
         return BaseResponse.ok("실시간 인기글 조회 성공", responses);
     }
 
-    @Operation(summary = "게시글 상세 조회", description = "특정 게시글의 상세 내용을 조회합니다.")
+    @Operation(summary = "게시글 상세 조회", description = "특정 게시글의 상세 내용과 댓글 리스트를 조회합니다.")
     @GetMapping("/{postId}")
     public ResponseEntity<BaseResponse<PostResponse>> getPostDetail(
         @PathVariable Long postId,
