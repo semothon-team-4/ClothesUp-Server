@@ -50,10 +50,10 @@ public class PostController {
         return BaseResponse.created("게시글 작성 성공", postId);
     }
 
-    @Operation(summary = "게시글 목록 조회", description = "커뮤니티의 게시글을 정렬 및 카테고리별로 조회합니다. category가 없으면 '전체' 조회입니다.")
+    @Operation(summary = "게시글 목록 조회", description = "커뮤니티의 게시글을 정렬 및 카테고리별로 조회합니다. (sort: RECOMMENDED, LATEST, POPULAR)")
     @GetMapping
     public ResponseEntity<BaseResponse<List<PostListResponse>>> getPosts(
-        @RequestParam(defaultValue = "LATEST") String sort,
+        @RequestParam(defaultValue = "RECOMMENDED") String sort,
         @RequestParam(required = false) PostCategory category,
         @AuthenticationPrincipal CustomUserDetails userDetails
     ) {
