@@ -5,6 +5,7 @@ import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -25,6 +26,7 @@ import semothon.team4.clothesup.shop.repository.ReviewRepository;
 import semothon.team4.clothesup.shop.repository.ShopRepository;
 import semothon.team4.clothesup.user.domain.User;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -55,15 +57,32 @@ public class ReviewService {
     }
 
     @Transactional
-    public ReviewWriteResponse writeReview(User user, Long shopId, Long receiptId, int rating,
+    public ReviewWriteResponse writeReview(User user, Long shopId, MultipartFile receiptImage, int rating,
         String content, List<MultipartFile> images) {
+        
         Shop shop = shopRepository.findById(shopId)
             .orElseThrow(() -> new CoreException(ShopErrorCode.SHOP_NOT_FOUND));
-        Receipt receipt = (receiptId != null)
-            ? receiptRepository.findById(receiptId)
-                .orElseThrow(() -> new CoreException(ReceiptErrorCode.RECEIPT_NOT_FOUND))
-            : null;
 
+        // 1. 영수증 이미지 유무 로그 출력
+        if (receiptImage != null && !receiptImage.isEmpty()) {
+            log.info("영수증 이미지 수신 성공: {}, 크기: {}", receiptImage.getOriginalFilename(), receiptImage.getSize());
+        } else {
+            log.warn("영수증 이미지가 전송되지 않았거나 비어있습니다.");
+        }
+
+        // 2. 영수증 처리
+        Receipt receipt = null;
+        if (receiptImage != null && !receiptImage.isEmpty()) {
+            String receiptUrl = s3Uploader.upload(receiptImage, "receipts");
+            receipt = receiptRepository.save(Receipt.builder()
+                .user(user)
+                .shop(shop)
+                .imageUrl(receiptUrl)
+                .createdAt(LocalDateTime.now())
+                .build());
+        }
+
+        // 3. 리뷰 저장
         Review review = reviewRepository.save(Review.builder()
             .user(user)
             .shop(shop)
@@ -73,6 +92,7 @@ public class ReviewService {
             .createdAt(LocalDateTime.now())
             .build());
 
+        // 4. 일반 리뷰 이미지 처리
         List<MultipartFile> validImages = (images == null) ? List.of()
             : images.stream().filter(f -> f != null && !f.isEmpty()).toList();
 
@@ -93,6 +113,7 @@ public class ReviewService {
             .map(img -> s3Uploader.generatePresignedUrl(img.getImageUrl(), PRESIGNED_URL_EXPIRATION))
             .toList();
 
+        // 5. 응답 생성 (영수증 객체를 직접 확인하여 확실하게 true/false 세팅)
         return ReviewWriteResponse.from(review, presignedUrls);
     }
 

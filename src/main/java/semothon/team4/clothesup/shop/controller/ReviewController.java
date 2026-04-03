@@ -41,13 +41,13 @@ public class ReviewController {
     public ResponseEntity<BaseResponse<ReviewWriteResponse>> writeReview(
         @AuthenticationPrincipal CustomUserDetails userDetails,
         @PathVariable Long shopId,
-        @RequestParam(required = false) Long receiptId,
+        @RequestParam(required = false) MultipartFile receiptImage,
         @RequestParam int rating,
         @RequestParam String content,
         @RequestParam(required = false) List<MultipartFile> images
     ) {
         return BaseResponse.created("리뷰 작성 성공",
-            reviewService.writeReview(userDetails.getUser(), shopId, receiptId, rating, content, images));
+            reviewService.writeReview(userDetails.getUser(), shopId, receiptImage, rating, content, images));
     }
 
     @Operation(summary = "리뷰 삭제")

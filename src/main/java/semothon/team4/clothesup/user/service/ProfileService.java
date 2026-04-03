@@ -105,6 +105,7 @@ public class ProfileService {
                     .rating(review.getRating())
                     .content(review.getContent())
                     .imageUrls(imageUrls)
+                    .isVerified(review.getReceipt() != null) // 영수증이 존재하면 인증됨
                     .createdAt(review.getCreatedAt())
                     .build();
             })
