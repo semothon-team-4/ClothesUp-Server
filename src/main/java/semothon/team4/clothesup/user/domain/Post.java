@@ -1,4 +1,4 @@
-package semothon.team4.clothesup.post.domain;
+package semothon.team4.clothesup.user.domain;
 
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
@@ -22,7 +22,7 @@ public class Post {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.LAZY, cascade = {jakarta.persistence.CascadeType.MERGE})
     private User user;
 
     @ManyToOne(fetch = FetchType.LAZY)
@@ -36,4 +36,13 @@ public class Post {
     private boolean isPublic;
 
     private LocalDateTime createdAt;
+
+    public Post(User user, Analysis analysis, String title, String content, boolean isPublic) {
+        this.user = user;
+        this.analysis = analysis;
+        this.title = title;
+        this.content = content;
+        this.isPublic = isPublic;
+        this.createdAt = LocalDateTime.now();
+    }
 }
