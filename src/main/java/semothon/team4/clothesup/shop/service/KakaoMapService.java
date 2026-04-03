@@ -33,17 +33,17 @@ public class KakaoMapService {
         KakaoSearchResponse response =
             kakaoLocalApiClient.searchKeyword("세탁소", 15, centerLat, centerLng);
 
-        if (response == null || response.getDocuments() == null) {
-            return List.of();
+        if (response != null && response.getDocuments() != null) {
+            response.getDocuments().stream()
+                .filter(doc -> {
+                    double lat = Double.parseDouble(doc.getY());
+                    double lng = Double.parseDouble(doc.getX());
+                    return lat >= swLat && lat <= neLat && lng >= swLng && lng <= neLng;
+                })
+                .forEach(this::upsertShop);
         }
 
-        return response.getDocuments().stream()
-            .filter(doc -> {
-                double lat = Double.parseDouble(doc.getY());
-                double lng = Double.parseDouble(doc.getX());
-                return lat >= swLat && lat <= neLat && lng >= swLng && lng <= neLng;
-            })
-            .map(this::upsertShop)
+        return shopRepository.findShopsInBounds(swLat, swLng, neLat, neLng).stream()
             .map(shop -> ShopListResponse.from(shop, userLat, userLng))
             .toList();
     }

@@ -11,6 +11,11 @@ public interface ShopRepository extends JpaRepository<Shop, Long> {
 
     Optional<Shop> findByPlaceId(String placeId);
 
+    @Query("SELECT s FROM Shop s WHERE s.lat BETWEEN :swLat AND :neLat AND s.lng BETWEEN :swLng AND :neLng")
+    List<Shop> findShopsInBounds(
+        @Param("swLat") double swLat, @Param("swLng") double swLng,
+        @Param("neLat") double neLat, @Param("neLng") double neLng);
+
     @Query(value = """
         SELECT * FROM shop
         WHERE (6371000 * acos(
