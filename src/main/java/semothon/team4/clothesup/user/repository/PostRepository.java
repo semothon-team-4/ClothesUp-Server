@@ -1,8 +1,10 @@
 package semothon.team4.clothesup.user.repository;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import semothon.team4.clothesup.user.domain.Post;
 
 public interface PostRepository extends JpaRepository<Post, Long> {
@@ -11,6 +13,12 @@ public interface PostRepository extends JpaRepository<Post, Long> {
     List<Post> findAllByOrderByCreatedAtDesc();
     
     // 인기순 조회 (좋아요 많은 순)
-    @Query("SELECT p FROM Post p LEFT JOIN PostLike pl ON p = pl.post GROUP BY p ORDER BY COUNT(pl) DESC, p.createdAt DESC")
+    @Query("SELECT p FROM Post p LEFT JOIN PostLike pl ON p = pl.post GROUP BY p.id ORDER BY COUNT(pl) DESC, p.createdAt DESC")
     List<Post> findAllOrderByLikesDesc();
+
+    // 최근 24시간 내 게시글 중 인기순 조회
+    @Query("SELECT p FROM Post p LEFT JOIN PostLike pl ON p = pl.post " +
+           "WHERE p.createdAt >= :since " +
+           "GROUP BY p.id ORDER BY COUNT(pl) DESC, p.createdAt DESC")
+    List<Post> findPopularPostsSince(@Param("since") LocalDateTime since);
 }

@@ -1,5 +1,6 @@
 package semothon.team4.clothesup.user.service;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
@@ -64,16 +65,18 @@ public class PostService {
             .collect(Collectors.toList());
     }
 
-    // [실시간 인기글] 상단 슬라이드용 (댓글 목록 제외)
+    // [실시간 인기글] 최근 24시간 내 게시글 중 좋아요 순 (최대 5개)
     public List<PostListResponse> getPopularPosts(User user) {
         User persistentUser = user != null ? userRepository.findById(user.getId()).orElse(null) : null;
-        return postRepository.findAllOrderByLikesDesc().stream()
+        LocalDateTime twentyFourHoursAgo = LocalDateTime.now().minusHours(24);
+        
+        return postRepository.findPopularPostsSince(twentyFourHoursAgo).stream()
             .limit(5)
             .map(post -> convertToPostListResponse(post, persistentUser))
             .collect(Collectors.toList());
     }
 
-    // [상세 조회] 모든 정보와 댓글 목록 포함 (본문 전체 노출)
+    // [상세 조회] 모든 정보와 댓글 목록 포함
     public PostResponse getPostDetail(Long postId, User user) {
         User persistentUser = user != null ? userRepository.findById(user.getId()).orElse(null) : null;
         Post post = postRepository.findById(postId)
@@ -126,7 +129,7 @@ public class PostService {
         return PostListResponse.builder()
             .id(post.getId())
             .title(post.getTitle())
-            .content(summaryContent) // 요약된 내용 전달
+            .content(summaryContent)
             .authorNickname(post.getUser().getNickname())
             .authorProfileImage(post.getUser().getProfileImage())
             .analysisImageUrl(post.getAnalysis() != null ? post.getAnalysis().getImageUrl() : null)
@@ -156,7 +159,7 @@ public class PostService {
         return PostResponse.builder()
             .id(post.getId())
             .title(post.getTitle())
-            .content(post.getContent()) // 전체 내용 전달
+            .content(post.getContent())
             .authorNickname(post.getUser().getNickname())
             .authorProfileImage(post.getUser().getProfileImage())
             .analysisImageUrl(post.getAnalysis() != null ? post.getAnalysis().getImageUrl() : null)
