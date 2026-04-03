@@ -50,4 +50,10 @@ public class Shop {
     private String placeUrl;
     private String imageUrl;
     private LocalDateTime createdAt;
+
+    public void updateLikeCount(int amount) {
+        if (this.like == null) this.like = 0L;
+        this.like += amount;
+        if (this.like < 0) this.like = 0L;
+    }
 }

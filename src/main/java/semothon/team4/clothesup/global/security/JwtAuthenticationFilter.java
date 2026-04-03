@@ -21,7 +21,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private static final List<String> NO_AUTH_PATHS = List.of(
         "/auth/register",
-        "/auth/login"
+        "/auth/login",
+        "/swagger-ui/",
+        "/v3/api-docs",
+        "/swagger-resources",
+        "/webjars/"
     );
 
     @Override
@@ -30,41 +34,40 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         String path = request.getServletPath();
 
-        if (NO_AUTH_PATHS.contains(path)) {
-            log.info("No auth needed for path: {}", path);
-            filterChain.doFilter(request, response);
-            return;
+        // 인증이 필요 없는 경로는 바로 통과
+        for (String noAuthPath : NO_AUTH_PATHS) {
+            if (path.startsWith(noAuthPath)) {
+                filterChain.doFilter(request, response);
+                return;
+            }
         }
 
         String token = resolveToken(request);
-        log.info("Token extracted: {}", token);
 
-        if (token != null) {
-            boolean valid = jwtTokenProvider.validateToken(token);
-            log.info("Token valid? {}", valid);
-
-            if (valid) {
+        try {
+            if (token != null && jwtTokenProvider.validateToken(token)) {
                 Authentication authentication = jwtTokenProvider.getAuthentication(token);
                 SecurityContextHolder.getContext().setAuthentication(authentication);
-                log.info("Authentication set in SecurityContext for user: {}", authentication.getName());
-            } else {
-                log.error("Invalid JWT token");
-                response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-                response.setContentType("application/json;charset=UTF-8");
-                response.getWriter().write("{\"error\": \"Invalid JWT token\"}");
-                return;
+                log.info("인증 성공: {}", authentication.getName());
             }
-        } else {
-            log.warn("No JWT token found in request header");
+        } catch (Exception e) {
+            log.error("필터 내 인증 처리 중 오류 발생: {}", e.getMessage());
+            // 필터에서 예외가 발생하면 서버가 터지지 않게 에러 응답을 직접 보냅니다.
+            setErrorResponse(response, "인증에 실패했습니다: " + e.getMessage());
+            return;
         }
 
         filterChain.doFilter(request, response);
     }
 
+    private void setErrorResponse(HttpServletResponse response, String message) throws IOException {
+        response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+        response.setContentType("application/json;charset=UTF-8");
+        response.getWriter().write("{\"message\": \"401: " + message + "\", \"data\": null}");
+    }
+
     private String resolveToken(HttpServletRequest request) {
         String bearerToken = request.getHeader("Authorization");
-        log.info("Authorization header: {}", bearerToken);
-
         if (StringUtils.hasText(bearerToken) && bearerToken.startsWith("Bearer ")) {
             return bearerToken.substring(7);
         }

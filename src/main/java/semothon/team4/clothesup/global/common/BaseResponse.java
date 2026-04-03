@@ -62,4 +62,8 @@ public class BaseResponse<T> {
     public static <T> ResponseEntity<BaseResponse<T>> internalServerError(String message, T body) {
         return of(HttpStatus.INTERNAL_SERVER_ERROR, message, body);
     }
+
+    public static ResponseEntity<BaseResponse<?>> internalServerError(String message) {
+        return of(HttpStatus.INTERNAL_SERVER_ERROR, message);
+    }
 }
