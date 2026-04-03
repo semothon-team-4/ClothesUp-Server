@@ -46,7 +46,10 @@ public class ReviewService {
                 List<String> presignedUrls = reviewImageRepository.findByReview(review).stream()
                     .map(img -> s3Uploader.generatePresignedUrl(img.getImageUrl(), PRESIGNED_URL_EXPIRATION))
                     .toList();
-                return ReviewResponse.from(review, presignedUrls);
+                String profileImageUrl = review.getUser().getProfileImage() != null
+                    ? s3Uploader.generatePresignedUrl(review.getUser().getProfileImage(), PRESIGNED_URL_EXPIRATION)
+                    : null;
+                return ReviewResponse.from(review, presignedUrls, profileImageUrl);
             })
             .toList();
     }

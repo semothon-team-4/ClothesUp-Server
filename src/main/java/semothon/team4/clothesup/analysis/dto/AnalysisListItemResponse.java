@@ -1,6 +1,7 @@
 package semothon.team4.clothesup.analysis.dto;
 
 import java.util.List;
+import java.util.function.Function;
 import lombok.Builder;
 import lombok.Getter;
 import semothon.team4.clothesup.analysis.domain.Analysis;
@@ -26,18 +27,19 @@ public class AnalysisListItemResponse {
         private String imageUrl;
     }
 
-    public static AnalysisListItemResponse from(Analysis analysis, Grade grade, List<CareLabel> careLabels) {
+    public static AnalysisListItemResponse from(Analysis analysis, Grade grade, List<CareLabel> careLabels,
+        String imageUrl, Function<String, String> presigner) {
         return AnalysisListItemResponse.builder()
             .id(analysis.getId())
             .name(analysis.getName())
             .category(analysis.getCategory())
-            .imageUrl(analysis.getImageUrl())
+            .imageUrl(imageUrl)
             .grade(grade)
             .careLabels(careLabels.stream()
                 .map(cl -> CareLabelItem.builder()
                     .id(cl.getCareLabelList().getId())
                     .name(cl.getCareLabelList().getName())
-                    .imageUrl(cl.getCareLabelList().getImageUrl())
+                    .imageUrl(presigner.apply(cl.getCareLabelList().getImageUrl()))
                     .build())
                 .toList())
             .build();

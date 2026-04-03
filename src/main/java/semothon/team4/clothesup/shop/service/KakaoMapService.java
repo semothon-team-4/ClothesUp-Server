@@ -6,7 +6,9 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import java.time.Duration;
 import semothon.team4.clothesup.global.kakao.KakaoLocalApiClient;
+import semothon.team4.clothesup.global.s3.S3Uploader;
 import semothon.team4.clothesup.shop.domain.Shop;
 import semothon.team4.clothesup.shop.dto.KakaoLocalDocument;
 import semothon.team4.clothesup.shop.dto.KakaoSearchResponse;
@@ -18,8 +20,11 @@ import semothon.team4.clothesup.shop.repository.ShopRepository;
 @RequiredArgsConstructor
 public class KakaoMapService {
 
+    private static final Duration PRESIGNED_URL_EXPIRATION = Duration.ofHours(1);
+
     private final KakaoLocalApiClient kakaoLocalApiClient;
     private final ShopRepository shopRepository;
+    private final S3Uploader s3Uploader;
 
     @Transactional
     public List<ShopListResponse> searchLaundryInBounds(
@@ -44,7 +49,8 @@ public class KakaoMapService {
         }
 
         return shopRepository.findShopsInBounds(swLat, swLng, neLat, neLng).stream()
-            .map(shop -> ShopListResponse.from(shop, userLat, userLng))
+            .map(shop -> ShopListResponse.from(shop, userLat, userLng,
+                shop.getImageUrl() != null ? s3Uploader.generatePresignedUrl(shop.getImageUrl(), PRESIGNED_URL_EXPIRATION) : null))
             .toList();
     }
 

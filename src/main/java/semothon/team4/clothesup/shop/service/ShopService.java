@@ -5,8 +5,10 @@ import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import java.time.Duration;
 import semothon.team4.clothesup.global.exception.CoreException;
 import semothon.team4.clothesup.global.exception.code.ShopErrorCode;
+import semothon.team4.clothesup.global.s3.S3Uploader;
 import semothon.team4.clothesup.shop.domain.Shop;
 import semothon.team4.clothesup.shop.domain.ShopPrice;
 import semothon.team4.clothesup.shop.dto.ShopDetailResponse;
@@ -23,13 +25,16 @@ import semothon.team4.clothesup.shop.repository.ShopRepository;
 @Transactional(readOnly = true)
 public class ShopService {
 
+    private static final Duration PRESIGNED_URL_EXPIRATION = Duration.ofHours(1);
+
     private final ShopRepository shopRepository;
     private final ShopPriceRepository shopPriceRepository;
+    private final S3Uploader s3Uploader;
 
     public List<ShopListResponse> getShopsNearby(double lat, double lng, int radius) {
         return shopRepository.findShopsWithinRadius(lat, lng, radius)
             .stream()
-            .map(shop -> ShopListResponse.from(shop, lat, lng))
+            .map(shop -> ShopListResponse.from(shop, lat, lng, toPresignedUrl(shop.getImageUrl())))
             .toList();
     }
 
@@ -38,6 +43,11 @@ public class ShopService {
             .orElseThrow(() -> new CoreException(ShopErrorCode.SHOP_NOT_FOUND));
         List<ShopPrice> prices = shopPriceRepository.findByShop(shop);
         return ShopDetailResponse.from(shop, prices);
+    }
+
+    private String toPresignedUrl(String key) {
+        if (key == null) return null;
+        return s3Uploader.generatePresignedUrl(key, PRESIGNED_URL_EXPIRATION);
     }
 
     @Transactional
