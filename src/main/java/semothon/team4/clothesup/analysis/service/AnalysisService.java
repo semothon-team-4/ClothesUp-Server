@@ -12,12 +12,15 @@ import org.springframework.web.multipart.MultipartFile;
 import semothon.team4.clothesup.analysis.domain.Analysis;
 import semothon.team4.clothesup.analysis.domain.CareLabel;
 import semothon.team4.clothesup.analysis.domain.CareLabelAnalysis;
+import semothon.team4.clothesup.analysis.domain.CareLabelList;
 import semothon.team4.clothesup.analysis.domain.ConditionAnalysis;
 import semothon.team4.clothesup.analysis.dto.AnalysisClosetResponse;
 import semothon.team4.clothesup.analysis.dto.AnalysisDetailResponse;
 import semothon.team4.clothesup.analysis.dto.AnalysisListItemResponse;
+import semothon.team4.clothesup.analysis.dto.CareLabelAnalysisRequest;
 import semothon.team4.clothesup.analysis.repository.AnalysisRepository;
 import semothon.team4.clothesup.analysis.repository.CareLabelAnalysisRepository;
+import semothon.team4.clothesup.analysis.repository.CareLabelListRepository;
 import semothon.team4.clothesup.analysis.repository.CareLabelRepository;
 import semothon.team4.clothesup.analysis.repository.ConditionAnalysisRepository;
 import java.util.function.Function;
@@ -37,6 +40,7 @@ public class AnalysisService {
     private final ConditionAnalysisRepository conditionAnalysisRepository;
     private final CareLabelAnalysisRepository careLabelAnalysisRepository;
     private final CareLabelRepository careLabelRepository;
+    private final CareLabelListRepository careLabelListRepository;
     private final S3Uploader s3Uploader;
 
     @Transactional
@@ -92,6 +96,49 @@ public class AnalysisService {
 
         String presignedUrl = s3Uploader.generatePresignedUrl(key, PRESIGNED_URL_EXPIRATION);
         return AnalysisDetailResponse.fromCondition(analysis, conditionAnalysis, presignedUrl);
+    }
+
+    @Transactional
+    public AnalysisDetailResponse requestCareLabelAnalysis(User user, CareLabelAnalysisRequest request, MultipartFile image) {
+        String key = s3Uploader.upload(image, "analyses");
+
+        Analysis analysis = analysisRepository.save(Analysis.builder()
+            .user(user)
+            .name(request.getName())
+            .category(request.getCategory())
+            .imageUrl(key)
+            .createdAt(LocalDateTime.now())
+            .build());
+
+        CareLabelAnalysis careLabelAnalysis = careLabelAnalysisRepository.save(
+            CareLabelAnalysis.builder()
+                .analysis(analysis)
+                .build());
+
+        List<CareLabel> careLabels = request.getLabels().stream()
+            .map(label -> {
+                CareLabelList careLabelList = careLabelListRepository.findByName(label.getSymbol())
+                    .orElseGet(() -> {
+                        String imageKey = s3Uploader.uploadBase64(label.getImageBase64(), "care-labels");
+                        return careLabelListRepository.save(
+                            CareLabelList.builder()
+                                .name(label.getSymbol())
+                                .desc(label.getDesc())
+                                .imageUrl(imageKey)
+                                .build());
+                    });
+                return CareLabel.builder()
+                    .careLabelAnalysis(careLabelAnalysis)
+                    .careLabelList(careLabelList)
+                    .build();
+            })
+            .toList();
+
+        careLabelRepository.saveAll(careLabels);
+
+        String presignedUrl = s3Uploader.generatePresignedUrl(key, PRESIGNED_URL_EXPIRATION);
+        Function<String, String> presigner = k -> s3Uploader.generatePresignedUrl(k, PRESIGNED_URL_EXPIRATION);
+        return AnalysisDetailResponse.fromCareLabel(analysis, careLabelAnalysis, careLabels, presignedUrl, presigner);
     }
 
     public AnalysisClosetResponse getMyAnalyses(User user) {

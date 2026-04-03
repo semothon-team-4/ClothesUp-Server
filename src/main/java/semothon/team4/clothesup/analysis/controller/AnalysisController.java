@@ -11,10 +11,12 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 import semothon.team4.clothesup.analysis.dto.AnalysisClosetResponse;
 import semothon.team4.clothesup.analysis.dto.AnalysisDetailResponse;
+import semothon.team4.clothesup.analysis.dto.CareLabelAnalysisRequest;
 import semothon.team4.clothesup.analysis.service.AnalysisService;
 import semothon.team4.clothesup.global.common.BaseResponse;
 import semothon.team4.clothesup.global.security.CustomUserDetails;
@@ -73,6 +75,17 @@ public class AnalysisController {
         return BaseResponse.created("내 옷장에 저장 성공",
             analysisService.requestConditionAnalysis(
                 userDetails.getUser(), name, category, image, grade, stainLevel, damageLevel, recommendation, storageTip));
+    }
+
+    @Operation(summary = "케어라벨 분석 결과 저장")
+    @PostMapping(value = "/care-label", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<BaseResponse<AnalysisDetailResponse>> requestCareLabelAnalysis(
+        @AuthenticationPrincipal CustomUserDetails userDetails,
+        @RequestPart("data") CareLabelAnalysisRequest request,
+        @RequestPart("image") MultipartFile image
+    ) {
+        return BaseResponse.created("케어라벨 옷장 저장 성공",
+            analysisService.requestCareLabelAnalysis(userDetails.getUser(), request, image));
     }
 
     @Operation(summary = "분석 항목 삭제")

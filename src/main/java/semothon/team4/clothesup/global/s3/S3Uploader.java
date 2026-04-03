@@ -2,6 +2,7 @@ package semothon.team4.clothesup.global.s3;
 
 import java.io.IOException;
 import java.time.Duration;
+import java.util.Base64;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -45,6 +46,36 @@ public class S3Uploader {
         } catch (IOException e) {
             throw new RuntimeException("S3 업로드 실패: " + key, e);
         }
+
+        return key;
+    }
+
+    public String uploadBase64(String base64, String folder) {
+        String contentType = "image/png";
+        String ext = ".png";
+        String data = base64;
+
+        if (base64.contains(",")) {
+            String header = base64.substring(0, base64.indexOf(","));
+            data = base64.substring(base64.indexOf(",") + 1);
+            if (header.contains("jpeg") || header.contains("jpg")) {
+                contentType = "image/jpeg";
+                ext = ".jpg";
+            }
+        }
+
+        byte[] bytes = Base64.getDecoder().decode(data);
+        String key = folder + "/" + UUID.randomUUID() + ext;
+
+        s3Client.putObject(
+            PutObjectRequest.builder()
+                .bucket(bucket)
+                .key(key)
+                .contentType(contentType)
+                .contentLength((long) bytes.length)
+                .build(),
+            RequestBody.fromBytes(bytes)
+        );
 
         return key;
     }
